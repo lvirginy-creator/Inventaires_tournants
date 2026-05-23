@@ -6,7 +6,7 @@ from loguru import logger
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.api.v1 import auth
+from app.api.v1 import auth, magasins, societes, tablettes, utilisateurs
 from app.core.config import get_settings
 from app.core.exceptions import add_exception_handlers
 from app.core.limiter import limiter
@@ -48,6 +48,10 @@ add_exception_handlers(app)
 
 # Routers
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(societes.router, prefix="/api/v1")
+app.include_router(magasins.router, prefix="/api/v1")
+app.include_router(tablettes.router, prefix="/api/v1")
+app.include_router(utilisateurs.router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["monitoring"])
