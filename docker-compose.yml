@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-inv_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-inv_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-inventaire}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-inv_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-inv_user}:${POSTGRES_PASSWORD:-inv_pass}@db:5432/${POSTGRES_DB:-inventaire}
+      JWT_SECRET: ${JWT_SECRET:-dev_secret_change_in_prod_32chars_min}
+      JWT_ALGORITHM: HS256
+      JWT_ADMIN_ACCESS_MINUTES: 60
+      JWT_ADMIN_REFRESH_HOURS: 8
+      JWT_TABLETTE_HOURS: 12
+      TOKEN_APPAIRAGE_HOURS: 24
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:5174","http://localhost"]'
+      LOG_LEVEL: DEBUG
+      ENVIRONMENT: development
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_USE_TLS: "false"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+volumes:
+  pgdata_dev:
