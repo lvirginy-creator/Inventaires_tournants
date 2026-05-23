@@ -15,7 +15,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.database import Base, get_db
-from app.core.security import hash_password
+from app.core.security import create_admin_access_token, hash_password
 from app.main import app
 from app.models import Magasin, Societe, Utilisateur
 from app.models.tablette import TokenAppairage
@@ -93,6 +93,12 @@ async def admin_user(db: AsyncSession) -> Utilisateur:
     db.add(u)
     await db.flush()
     return u
+
+
+@pytest_asyncio.fixture
+async def auth_headers(admin_user: Utilisateur) -> dict[str, str]:
+    token = create_admin_access_token(admin_user.id, admin_user.role.value)
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest_asyncio.fixture
