@@ -8,6 +8,7 @@ import MagasinsPage from "@/pages/MagasinsPage";
 import TablettesPage from "@/pages/TablettesPage";
 import UtilisateursPage from "@/pages/UtilisateursPage";
 import ArticlesPage from "@/pages/ArticlesPage";
+import CampagnesPage from "@/pages/CampagnesPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.accessToken);
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="tablettes" element={<TablettesPage />} />
         <Route path="utilisateurs" element={<UtilisateursPage />} />
         <Route path="articles" element={<ArticlesPage />} />
+        <Route path="campagnes" element={<CampagnesPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -9,6 +9,7 @@ const navItems = [
   { to: "/tablettes", label: "Tablettes" },
   { to: "/utilisateurs", label: "Utilisateurs" },
   { to: "/articles", label: "Articles" },
+  { to: "/campagnes", label: "Campagnes" },
 ];
 
 export default function Layout() {
