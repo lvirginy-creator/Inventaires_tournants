@@ -49,6 +49,22 @@ services:
       timeout: 10s
       retries: 3
 
+  frontend-admin:
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - backend
+
+  frontend-tablette:
+    build:
+      context: ./frontend-tablette
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - backend
+
   nginx:
     image: nginx:1.25-alpine
     restart: always
@@ -60,6 +76,8 @@ services:
       - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       - backend
+      - frontend-admin
+      - frontend-tablette
 
 volumes:
   pgdata_prod:

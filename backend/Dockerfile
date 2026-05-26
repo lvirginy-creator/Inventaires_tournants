@@ -11,5 +11,7 @@ COPY app/ ./app/
 COPY alembic.ini .
 COPY alembic/ ./alembic/
 COPY scripts/ ./scripts/
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+ENTRYPOINT ["./entrypoint.sh"]

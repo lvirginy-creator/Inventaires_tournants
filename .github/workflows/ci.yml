@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # ── 1. Lint backend (rapide, bloquant) ──────────────────────────────────────
+  backend-lint:
+    name: "Backend — ruff"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Ruff check
+        run: ruff check app/ tests/
+        working-directory: backend
+
+  # ── 2. Tests backend (nécessite PostgreSQL) ──────────────────────────────────
+  backend-tests:
+    name: "Backend — pytest"
+    needs: backend-lint
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: inv_user
+          POSTGRES_PASSWORD: inv_pass_ci
+          POSTGRES_DB: inventaire_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://inv_user:inv_pass_ci@localhost:5432/inventaire_test
+      JWT_SECRET: ci_test_jwt_secret_32_chars_minimum!!
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+        working-directory: backend
+
+      - name: Run tests
+        run: pytest -x -q
+        working-directory: backend
+
+  # ── 3. Vérification TypeScript — frontend-admin ──────────────────────────────
+  frontend-admin:
+    name: "Frontend admin — tsc"
+    needs: backend-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend-admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend-admin
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+        working-directory: frontend-admin
+
+  # ── 4. Vérification TypeScript — frontend-tablette ───────────────────────────
+  frontend-tablette:
+    name: "Frontend tablette — tsc"
+    needs: backend-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend-tablette/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend-tablette
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+        working-directory: frontend-tablette
