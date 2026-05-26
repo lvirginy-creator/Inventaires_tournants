@@ -16,7 +16,7 @@ NPM les atteint directement par nom de conteneur, sans port localhost.
 **Custom Nginx config (onglet Advanced) :**
 ```nginx
 location /api/ {
-    proxy_pass http://inventaires_tournants_backend_1:8000;
+    proxy_pass http://inventaires_tournants_backend_1:3004;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -25,7 +25,7 @@ location /api/ {
 }
 
 location /health {
-    proxy_pass http://inventaires_tournants_backend_1:8000/health;
+    proxy_pass http://inventaires_tournants_backend_1:3004/health;
 }
 ```
 
@@ -42,7 +42,7 @@ location /health {
 **Custom Nginx config (onglet Advanced) :**
 ```nginx
 location /api/ {
-    proxy_pass http://inventaires_tournants_backend_1:8000;
+    proxy_pass http://inventaires_tournants_backend_1:3004;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -51,7 +51,7 @@ location /api/ {
 }
 
 location /health {
-    proxy_pass http://inventaires_tournants_backend_1:8000/health;
+    proxy_pass http://inventaires_tournants_backend_1:3004/health;
 }
 ```
 

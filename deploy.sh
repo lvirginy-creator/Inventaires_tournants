@@ -45,7 +45,7 @@ docker network connect proxy inventaires_tournants_backend_1 2>/dev/null && \
 echo ""
 echo "[4/5] Attente du backend (max 60s)..."
 for i in $(seq 1 12); do
-    if $DC -f "$COMPOSE_FILE" exec -T backend curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+    if $DC -f "$COMPOSE_FILE" exec -T backend curl -sf http://localhost:3004/health > /dev/null 2>&1; then
         echo "  Backend prêt."
         break
     fi
