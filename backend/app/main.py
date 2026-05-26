@@ -12,6 +12,7 @@ from app.api.v1 import (
     campagne_active,
     campagnes,
     catalogue,
+    comptages,
     magasins,
     societes,
     tablettes,
@@ -66,6 +67,7 @@ app.include_router(articles.router, prefix="/api/v1")
 app.include_router(catalogue.router, prefix="/api/v1")
 app.include_router(campagnes.router, prefix="/api/v1")
 app.include_router(campagne_active.router, prefix="/api/v1")
+app.include_router(comptages.router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["monitoring"])
