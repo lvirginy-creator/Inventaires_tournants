@@ -34,9 +34,16 @@ echo "[2/4] Build et démarrage des conteneurs..."
 $DC -f "$COMPOSE_FILE" down --remove-orphans
 $DC -f "$COMPOSE_FILE" up -d --build
 
-# ── 3. Vérification que le backend est sain avant les migrations ──────────────
+# ── 3. Connexion réseau proxy (bug docker-compose v1.29.2 : réseau déclaré mais interface non créée)
 echo ""
-echo "[3/4] Attente du backend (max 60s)..."
+echo "[3/5] Connexion du backend au réseau proxy..."
+docker network connect proxy inventaires_tournants_backend_1 2>/dev/null && \
+    echo "  Backend connecté au réseau proxy." || \
+    echo "  (déjà connecté ou réseau proxy inexistant, on continue)"
+
+# ── 4. Vérification que le backend est sain ───────────────────────────────────
+echo ""
+echo "[4/5] Attente du backend (max 60s)..."
 for i in $(seq 1 12); do
     if $DC -f "$COMPOSE_FILE" exec -T backend curl -sf http://localhost:8000/health > /dev/null 2>&1; then
         echo "  Backend prêt."
@@ -48,7 +55,7 @@ done
 
 # ── 4. Statut final ────────────────────────────────────────────────────────────
 echo ""
-echo "[4/4] Statut des conteneurs :"
+echo "[5/5] Statut des conteneurs :"
 $DC -f "$COMPOSE_FILE" ps
 
 echo ""
