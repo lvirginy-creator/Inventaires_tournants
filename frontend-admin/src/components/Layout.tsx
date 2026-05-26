@@ -8,6 +8,7 @@ const navItems = [
   { to: "/magasins", label: "Magasins" },
   { to: "/tablettes", label: "Tablettes" },
   { to: "/utilisateurs", label: "Utilisateurs" },
+  { to: "/articles", label: "Articles" },
 ];
 
 export default function Layout() {
