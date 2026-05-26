@@ -1,6 +1,7 @@
 from app.core.database import Base
 from app.models.article import Article
 from app.models.campagne import Campagne, LigneCampagne, StatutCampagne
+from app.models.comptage import Comptage
 from app.models.magasin import Magasin
 from app.models.societe import Societe
 from app.models.tablette import SessionTablette, Tablette, TokenAppairage
@@ -18,4 +19,5 @@ __all__ = [
     "Campagne",
     "LigneCampagne",
     "StatutCampagne",
+    "Comptage",
 ]
