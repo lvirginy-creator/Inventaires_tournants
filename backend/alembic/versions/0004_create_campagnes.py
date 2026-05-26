@@ -21,15 +21,14 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # ENUM statut campagne
-    statut_enum = postgresql.ENUM(
-        "brouillon",
-        "en_cours",
-        "terminee",
-        "validee",
-        name="statutcampagne",
-    )
-    statut_enum.create(op.get_bind(), checkfirst=True)
+    # ENUM statut campagne — bloc DO/EXCEPTION pour idempotence garantie
+    op.execute(sa.text("""
+        DO $$ BEGIN
+            CREATE TYPE statutcampagne AS ENUM ('brouillon', 'en_cours', 'terminee', 'validee');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """))
 
     op.create_table(
         "campagnes",
