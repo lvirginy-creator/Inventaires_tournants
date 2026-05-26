@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Campagne validée</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; background: #f4f6f9; margin: 0; padding: 24px; }
+    .card { background: #ffffff; border-radius: 8px; max-width: 700px; margin: 0 auto;
+            box-shadow: 0 2px 8px rgba(0,0,0,.08); overflow: hidden; }
+    .header { background: #1e40af; color: #ffffff; padding: 24px 32px; }
+    .header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+    .header p { margin: 4px 0 0; font-size: 13px; opacity: .85; }
+    .body { padding: 24px 32px; }
+    .meta { margin-bottom: 20px; color: #374151; font-size: 14px; }
+    .meta strong { color: #111827; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead tr { background: #eff6ff; }
+    th { padding: 10px 12px; text-align: left; font-weight: 600;
+         color: #1e40af; border-bottom: 2px solid #bfdbfe; white-space: nowrap; }
+    td { padding: 9px 12px; border-bottom: 1px solid #e5e7eb; color: #374151; }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .pos { color: #15803d; font-weight: 600; }
+    .neg { color: #b91c1c; font-weight: 600; }
+    .zero { color: #6b7280; }
+    .footer { padding: 16px 32px; background: #f9fafb; border-top: 1px solid #e5e7eb;
+              font-size: 12px; color: #9ca3af; text-align: center; }
+    .badge { display: inline-block; background: #dcfce7; color: #15803d;
+             border-radius: 12px; padding: 3px 12px; font-size: 13px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>Campagne validée</h1>
+      <p>Groupe G2C — Inventaires tournants</p>
+    </div>
+
+    <div class="body">
+      <div class="meta">
+        <p><strong>Magasin :</strong> {{ magasin_nom }}</p>
+        <p><strong>Campagne :</strong> {{ campagne_nom }}</p>
+        <p><strong>Statut :</strong> <span class="badge">Validée</span></p>
+      </div>
+
+      {% if lignes %}
+      <table>
+        <thead>
+          <tr>
+            <th>Code barre</th>
+            <th>Libellé</th>
+            <th class="num">Théorique</th>
+            <th class="num">Compté</th>
+            <th class="num">Écart</th>
+            <th class="num">Écart %</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in lignes %}
+          <tr>
+            <td><code>{{ l.code_barre }}</code></td>
+            <td>{{ l.libelle }}</td>
+            <td class="num">
+              {% if l.qt_theo is not none %}{{ "%.3f"|format(l.qt_theo) }}{% else %}—{% endif %}
+            </td>
+            <td class="num">{{ "%.3f"|format(l.qt_compte) }}</td>
+            <td class="num {% if l.ecart is not none %}{% if l.ecart > 0 %}pos{% elif l.ecart < 0 %}neg{% else %}zero{% endif %}{% endif %}">
+              {% if l.ecart is not none %}
+                {% if l.ecart > 0 %}+{% endif %}{{ "%.3f"|format(l.ecart) }}
+              {% else %}—{% endif %}
+            </td>
+            <td class="num {% if l.ecart_pct is not none %}{% if l.ecart_pct > 0 %}pos{% elif l.ecart_pct < 0 %}neg{% else %}zero{% endif %}{% endif %}">
+              {% if l.ecart_pct is not none %}
+                {% if l.ecart_pct > 0 %}+{% endif %}{{ "%.1f"|format(l.ecart_pct) }} %
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:#6b7280;margin-top:12px;">
+        {{ lignes|length }} article{{ 's' if lignes|length > 1 else '' }} au total.
+      </p>
+      {% else %}
+      <p style="color:#6b7280;font-size:14px;">Aucun article dans cette campagne.</p>
+      {% endif %}
+    </div>
+
+    <div class="footer">
+      Cet e-mail a été généré automatiquement par l'application Inventaires Tournants G2C.<br/>
+      Merci de ne pas y répondre.
+    </div>
+  </div>
+</body>
+</html>

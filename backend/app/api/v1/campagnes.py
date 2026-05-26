@@ -3,13 +3,14 @@ import io
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_admin, require_admin_role
 from app.core.database import get_db, now_utc
 from app.models.article import Article
 from app.models.campagne import Campagne, LigneCampagne, StatutCampagne
+from app.models.comptage import Comptage
 from app.models.magasin import Magasin
 from app.models.utilisateur import Utilisateur
 from app.schemas.campagne import (
@@ -21,6 +22,7 @@ from app.schemas.campagne import (
     LigneCampagneRead,
     LigneImportResponse,
 )
+from app.services.email import send_validation_email_background
 
 router = APIRouter(prefix="/campagnes", tags=["campagnes"])
 
@@ -230,6 +232,79 @@ async def cloturer_campagne(
     campagne.updated_at = now_utc()
     await db.commit()
     await db.refresh(campagne)
+    return CampagneRead.model_validate(campagne)
+
+
+@router.post("/{campagne_id}/valider", response_model=CampagneRead)
+async def valider_campagne(
+    campagne_id: uuid.UUID,
+    _: Utilisateur = Depends(require_admin_role),
+    db: AsyncSession = Depends(get_db),
+) -> CampagneRead:
+    """Valide une campagne terminée et envoie un e-mail récapitulatif au responsable du magasin."""
+    campagne = await _get_campagne_or_404(campagne_id, db)
+    _require_statut(campagne, StatutCampagne.terminee)
+
+    # ── Charger le magasin ──────────────────────────────────────────────────────
+    mag_result = await db.execute(select(Magasin).where(Magasin.id == campagne.magasin_id))
+    magasin = mag_result.scalar_one()
+
+    # ── Agréger les comptages par article ────────────────────────────────────────
+    agg_result = await db.execute(
+        select(Comptage.article_id, func.sum(Comptage.quantite).label("total"))
+        .where(Comptage.campagne_id == campagne_id)
+        .group_by(Comptage.article_id)
+    )
+    comptages_par_article: dict[uuid.UUID, float] = {
+        row.article_id: float(row.total) for row in agg_result
+    }
+
+    # ── Charger les lignes et les articles en bulk ───────────────────────────────
+    lignes_result = await db.execute(
+        select(LigneCampagne).where(LigneCampagne.campagne_id == campagne_id)
+    )
+    lignes = list(lignes_result.scalars().all())
+
+    article_ids = [lg.article_id for lg in lignes]
+    arts_result = await db.execute(select(Article).where(Article.id.in_(article_ids)))
+    articles_map: dict[uuid.UUID, Article] = {a.id: a for a in arts_result.scalars().all()}
+
+    # ── Construire le tableau d'écarts pour l'e-mail ─────────────────────────────
+    lignes_email: list[dict] = []
+    for ligne in lignes:
+        art = articles_map.get(ligne.article_id)
+        if art is None:
+            continue
+        qt_theo = float(ligne.quantite_theorique) if ligne.quantite_theorique is not None else None
+        qt_compte = comptages_par_article.get(ligne.article_id, 0.0)
+        ecart = (qt_compte - qt_theo) if qt_theo is not None else None
+        ecart_pct = (ecart / qt_theo * 100) if (qt_theo and qt_theo != 0) else None
+        lignes_email.append(
+            {
+                "code_barre": art.code_barre,
+                "libelle": art.libelle,
+                "qt_theo": qt_theo,
+                "qt_compte": qt_compte,
+                "ecart": ecart,
+                "ecart_pct": ecart_pct,
+            }
+        )
+
+    # ── Transition terminee → validee ────────────────────────────────────────────
+    campagne.statut = StatutCampagne.validee
+    campagne.updated_at = now_utc()
+    await db.commit()
+    await db.refresh(campagne)
+
+    # ── E-mail fire & forget (ne bloque pas la réponse) ─────────────────────────
+    if magasin.email_responsable:
+        send_validation_email_background(
+            to=magasin.email_responsable,
+            campagne_nom=campagne.nom,
+            magasin_nom=magasin.nom,
+            lignes=lignes_email,
+        )
+
     return CampagneRead.model_validate(campagne)
 
 

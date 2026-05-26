@@ -66,6 +66,13 @@ export default function CampagnesPage() {
   const [importLoading, setImportLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Toast notification
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
   // ── Chargements ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -133,6 +140,24 @@ export default function CampagnesPage() {
     if (!selected) return;
     await api.post(`/campagnes/${selected.id}/${action}`);
     refreshSelected();
+  };
+
+  const handleValider = async () => {
+    if (!selected) return;
+    try {
+      await api.post(`/campagnes/${selected.id}/valider`);
+      await refreshSelected();
+      const mag = magasins.find((m) => m.id === selected.magasin_id);
+      const emailInfo = mag?.email_responsable
+        ? ` — e-mail envoyé à ${mag.email_responsable}`
+        : "";
+      showToast(`Campagne validée${emailInfo}`);
+    } catch (err: unknown) {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        "Erreur lors de la validation";
+      showToast(detail, "error");
+    }
   };
 
   const handleDelete = async () => {
@@ -302,6 +327,14 @@ export default function CampagnesPage() {
                     Clôturer
                   </button>
                 )}
+                {selected.statut === "terminee" && (
+                  <button
+                    onClick={handleValider}
+                    className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                  >
+                    ✓ Valider
+                  </button>
+                )}
               </div>
             </div>
 
@@ -463,6 +496,23 @@ export default function CampagnesPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Toast notification ─────────────────────────────────────────────── */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg text-sm font-medium transition-all ${
+            toast.type === "success"
+              ? "bg-green-700 text-white"
+              : "bg-red-700 text-white"
+          }`}
+        >
+          <span>{toast.type === "success" ? "✓" : "✗"}</span>
+          <span>{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-2 opacity-70 hover:opacity-100">
+            ×
+          </button>
         </div>
       )}
 

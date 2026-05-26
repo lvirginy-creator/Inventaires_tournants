@@ -95,33 +95,45 @@ export default function DashboardPage() {
             <>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-gray-400 uppercase font-semibold tracking-wide">
-                  Campagne active
+                  Campagne
                 </span>
-                <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                  En cours
-                </span>
+                {campagne.statut === "validee" ? (
+                  <span className="bg-green-100 text-green-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                    ✓ Validée
+                  </span>
+                ) : campagne.statut === "terminee" ? (
+                  <span className="bg-yellow-100 text-yellow-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                    En attente de validation
+                  </span>
+                ) : (
+                  <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                    En cours
+                  </span>
+                )}
               </div>
               <p className="text-xl font-bold text-gray-900 mt-1">{campagne.nom}</p>
 
-              {/* Barre de progression */}
-              <div className="mt-4">
-                <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="text-gray-600">Articles comptés</span>
-                  <span className="font-semibold text-gray-900">
-                    {countedArticles} / {campagne.lignes.length}
-                  </span>
+              {/* Barre de progression (uniquement si en cours) */}
+              {campagne.statut === "en_cours" && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span className="text-gray-600">Articles comptés</span>
+                    <span className="font-semibold text-gray-900">
+                      {countedArticles} / {campagne.lignes.length}
+                    </span>
+                  </div>
+                  <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-600 rounded-full transition-all"
+                      style={{
+                        width: campagne.lignes.length
+                          ? `${Math.min(100, (countedArticles / campagne.lignes.length) * 100)}%`
+                          : "0%",
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-blue-600 rounded-full transition-all"
-                    style={{
-                      width: campagne.lignes.length
-                        ? `${Math.min(100, (countedArticles / campagne.lignes.length) * 100)}%`
-                        : "0%",
-                    }}
-                  />
-                </div>
-              </div>
+              )}
             </>
           ) : (
             <div className="text-center py-4">
@@ -163,7 +175,7 @@ export default function DashboardPage() {
 
       {/* Boutons d'action en bas */}
       <div className="p-5 space-y-3">
-        {campagne && (
+        {campagne?.statut === "en_cours" && (
           <button
             onClick={() => navigate("/count")}
             className="w-full bg-blue-700 text-white font-bold py-5 rounded-2xl text-xl shadow-lg hover:bg-blue-800 active:scale-95 transition-transform"
