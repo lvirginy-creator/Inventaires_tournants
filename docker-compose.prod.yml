@@ -48,6 +48,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - default
+      - proxy
 
   frontend-admin:
     build:
@@ -58,6 +61,9 @@ services:
       - "127.0.0.1:3001:80"
     depends_on:
       - backend
+    networks:
+      - default
+      - proxy
 
   frontend-tablette:
     build:
@@ -68,6 +74,14 @@ services:
       - "127.0.0.1:3002:80"
     depends_on:
       - backend
+    networks:
+      - default
+      - proxy
 
 volumes:
   pgdata_prod:
+
+networks:
+  default:
+  proxy:
+    external: true
