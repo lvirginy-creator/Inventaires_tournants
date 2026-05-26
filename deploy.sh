@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEPLOY_DIR="/opt/inventaire_tournants"
+DEPLOY_DIR="$(cd "$(dirname "$0")" && pwd)"
 COMPOSE_FILE="docker-compose.prod.yml"
 
 echo "=== Déploiement Inventaire Tournant ==="
