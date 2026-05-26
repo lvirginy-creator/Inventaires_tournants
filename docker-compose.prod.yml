@@ -54,6 +54,8 @@ services:
       context: ./frontend-admin
       dockerfile: Dockerfile
     restart: always
+    ports:
+      - "127.0.0.1:3001:80"
     depends_on:
       - backend
 
@@ -62,22 +64,10 @@ services:
       context: ./frontend-tablette
       dockerfile: Dockerfile
     restart: always
-    depends_on:
-      - backend
-
-  nginx:
-    image: nginx:1.25-alpine
-    restart: always
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - "127.0.0.1:3002:80"
     depends_on:
       - backend
-      - frontend-admin
-      - frontend-tablette
 
 volumes:
   pgdata_prod:
