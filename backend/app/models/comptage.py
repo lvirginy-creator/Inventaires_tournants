@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, now_utc
@@ -23,8 +23,8 @@ class Comptage(Base):
     campagne_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("campagnes.id"), nullable=False)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id"), nullable=False)
     magasin_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("magasins.id"), nullable=False)
-    session_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("sessions_tablette.id"), nullable=False
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("sessions_tablette.id"), nullable=True
     )
     quantite: Mapped[float] = mapped_column(Numeric(12, 3), nullable=False)
     # Identifiant unique généré côté tablette — garantit l'idempotence du sync
@@ -32,11 +32,13 @@ class Comptage(Base):
     # Horodatage côté tablette (peut différer du created_at serveur)
     counted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    # Ajout manuel depuis l'interface admin (session_id peut être NULL dans ce cas)
+    saisie_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     campagne: Mapped["Campagne"] = relationship()
     article: Mapped["Article"] = relationship()
     magasin: Mapped["Magasin"] = relationship()
-    session: Mapped["SessionTablette"] = relationship()
+    session: Mapped[Optional["SessionTablette"]] = relationship()
 
     __table_args__ = (
         Index("ix_comptages_campagne_article", "campagne_id", "article_id"),
