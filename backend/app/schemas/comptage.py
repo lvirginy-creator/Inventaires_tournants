@@ -20,11 +20,12 @@ class ComptageRead(BaseModel):
     campagne_id: uuid.UUID
     article_id: uuid.UUID
     magasin_id: uuid.UUID
-    session_id: uuid.UUID
+    session_id: uuid.UUID | None
     quantite: Decimal
     client_uuid: str
     counted_at: datetime
     created_at: datetime
+    saisie_admin: bool = False
 
 
 class BatchComptageRequest(BaseModel):
@@ -34,3 +35,47 @@ class BatchComptageRequest(BaseModel):
 class BatchComptageResponse(BaseModel):
     created: int
     duplicates: int
+
+
+# ── Schémas admin — réconciliation multi-comptages ─────────────────────────────
+
+
+class ComptageAdminCreate(BaseModel):
+    """Saisie manuelle d'un comptage depuis l'interface admin."""
+
+    article_id: uuid.UUID
+    quantite: Decimal = Field(..., ge=0)
+
+
+class ComptageDetail(BaseModel):
+    """Détail d'un comptage individuel (admin)."""
+
+    id: uuid.UUID
+    article_id: uuid.UUID
+    code_barre: str
+    libelle: str
+    quantite: Decimal
+    counted_at: datetime
+    created_at: datetime
+    tablette_nom: str | None  # None pour les saisies admin
+    saisie_admin: bool
+
+
+class ComptagesParArticle(BaseModel):
+    """Tous les comptages d'un article pour une campagne."""
+
+    article_id: uuid.UUID
+    code_barre: str
+    code_article: str
+    libelle: str
+    nb_comptages: int
+    total: Decimal
+    comptages: list[ComptageDetail]
+
+
+class ComptagesCampagneResponse(BaseModel):
+    """Réponse complète : tous les comptages d'une campagne, groupés par article."""
+
+    campagne_id: uuid.UUID
+    nb_comptages: int
+    articles: list[ComptagesParArticle]

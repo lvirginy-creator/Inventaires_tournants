@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import api from "@/api/client";
 import type {
   Article,
   CampagneDetail,
   CampagneRapport,
   CampagneSummary,
+  ComptagesCampagneResponse,
   LigneImportResponse,
   Magasin,
   StatutCampagne,
@@ -76,6 +77,11 @@ export default function CampagnesPage() {
     asc: true,
   });
 
+  // Multi-comptages expandables
+  const [comptagesData, setComptagesData] = useState<ComptagesCampagneResponse | null>(null);
+  const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
+  const [addQty, setAddQty] = useState<Record<string, string>>({});
+
   // Toast notification
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const showToast = (message: string, type: "success" | "error" = "success") => {
@@ -112,6 +118,8 @@ export default function CampagnesPage() {
     setSelected(r.data);
     setDetailTab("articles");
     setRapport(null);
+    setComptagesData(null);
+    setExpandedArticle(null);
     setAddArticleId("");
     setAddQt("");
     setAddError("");
@@ -269,6 +277,59 @@ export default function CampagnesPage() {
         return 0;
       })
     : [];
+
+  const loadComptagesDetail = async () => {
+    if (!selected) return;
+    try {
+      const r = await api.get<ComptagesCampagneResponse>(
+        `/campagnes/${selected.id}/comptages`
+      );
+      setComptagesData(r.data);
+    } catch {
+      /* silencieux — le tableau reste vide */
+    }
+  };
+
+  const handleToggleExpand = async (articleId: string) => {
+    if (expandedArticle === articleId) {
+      setExpandedArticle(null);
+      return;
+    }
+    setExpandedArticle(articleId);
+    if (!comptagesData) await loadComptagesDetail();
+  };
+
+  const handleDeleteComptage = async (comptageId: string) => {
+    if (!confirm("Supprimer ce comptage ?")) return;
+    await api.delete(`/comptages/${comptageId}`);
+    await Promise.all([loadRapport(), loadComptagesDetail()]);
+  };
+
+  const handleAddAdminComptage = async (articleId: string) => {
+    if (!selected) return;
+    const qty = parseFloat(addQty[articleId] || "0");
+    if (isNaN(qty) || qty < 0) return;
+    try {
+      await api.post(`/campagnes/${selected.id}/comptages/admin`, {
+        article_id: articleId,
+        quantite: qty,
+      });
+      setAddQty((prev) => ({ ...prev, [articleId]: "" }));
+      await Promise.all([loadRapport(), loadComptagesDetail()]);
+      showToast("Comptage ajouté");
+    } catch (err: unknown) {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        "Erreur ajout";
+      showToast(detail, "error");
+    }
+  };
+
+  const comptagesParArticle = (articleId: string) =>
+    comptagesData?.articles.find((a) => a.article_id === articleId)?.comptages ?? [];
+
+  const canEditComptages =
+    selected?.statut === "en_cours" || selected?.statut === "terminee";
 
   const editable = selected?.statut === "brouillon";
   const magasinNom = (id: string) => magasins.find((m) => m.id === id)?.nom ?? id;
@@ -480,6 +541,7 @@ export default function CampagnesPage() {
                       <table className="min-w-full divide-y divide-gray-200 text-xs">
                         <thead className="bg-gray-50">
                           <tr>
+                            <th className="px-3 py-2 w-10"></th>
                             {(
                               [
                                 ["code_barre", "Code barre"],
@@ -506,7 +568,7 @@ export default function CampagnesPage() {
                         <tbody className="divide-y divide-gray-100">
                           {sortedLignes.length === 0 && (
                             <tr>
-                              <td colSpan={6} className="px-4 py-6 text-center text-gray-400">
+                              <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
                                 Aucun article
                               </td>
                             </tr>
@@ -524,31 +586,157 @@ export default function CampagnesPage() {
                                 : lg.ecart === 0
                                   ? "text-green-700 font-medium"
                                   : "text-red-600 font-semibold";
+                            const isExpanded = expandedArticle === lg.article_id;
+                            const artComptages = comptagesParArticle(lg.article_id);
+                            const nbComptages = comptagesData?.articles.find(
+                              (a) => a.article_id === lg.article_id
+                            )?.nb_comptages;
                             return (
-                              <tr key={lg.article_id} className={rowCls}>
-                                <td className="px-3 py-2 font-mono">{lg.code_barre}</td>
-                                <td className="px-3 py-2 max-w-[200px] truncate" title={lg.libelle}>
-                                  {lg.libelle}
-                                </td>
-                                <td className="px-3 py-2 text-right text-gray-600">
-                                  {lg.quantite_theorique ?? "—"}
-                                </td>
-                                <td className="px-3 py-2 text-right font-medium">
-                                  {lg.quantite_comptee}
-                                </td>
-                                <td className={`px-3 py-2 text-right ${ecartCls}`}>
-                                  {lg.ecart !== null
-                                    ? (lg.ecart > 0 ? "+" : "") + lg.ecart
-                                    : "—"}
-                                </td>
-                                <td className={`px-3 py-2 text-right ${ecartCls}`}>
-                                  {lg.ecart_pct !== null
-                                    ? (lg.ecart_pct > 0 ? "+" : "") +
-                                      lg.ecart_pct.toFixed(1) +
-                                      " %"
-                                    : "—"}
-                                </td>
-                              </tr>
+                              <Fragment key={lg.article_id}>
+                                <tr className={rowCls}>
+                                  <td className="px-3 py-2">
+                                    <button
+                                      onClick={() => handleToggleExpand(lg.article_id)}
+                                      className="text-gray-400 hover:text-gray-700 text-xs leading-none"
+                                      title={isExpanded ? "Replier" : "Voir les comptages"}
+                                    >
+                                      {isExpanded ? "▼" : "▶"}
+                                    </button>
+                                    {nbComptages !== undefined && (
+                                      <span className="ml-1 text-xs text-gray-400">
+                                        ({nbComptages})
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 font-mono">{lg.code_barre}</td>
+                                  <td
+                                    className="px-3 py-2 max-w-[200px] truncate"
+                                    title={lg.libelle}
+                                  >
+                                    {lg.libelle}
+                                  </td>
+                                  <td className="px-3 py-2 text-right text-gray-600">
+                                    {lg.quantite_theorique ?? "—"}
+                                  </td>
+                                  <td className="px-3 py-2 text-right font-medium">
+                                    {lg.quantite_comptee}
+                                  </td>
+                                  <td className={`px-3 py-2 text-right ${ecartCls}`}>
+                                    {lg.ecart !== null
+                                      ? (lg.ecart > 0 ? "+" : "") + lg.ecart
+                                      : "—"}
+                                  </td>
+                                  <td className={`px-3 py-2 text-right ${ecartCls}`}>
+                                    {lg.ecart_pct !== null
+                                      ? (lg.ecart_pct > 0 ? "+" : "") +
+                                        lg.ecart_pct.toFixed(1) +
+                                        " %"
+                                      : "—"}
+                                  </td>
+                                </tr>
+                                {isExpanded && (
+                                  <tr>
+                                    <td
+                                      colSpan={7}
+                                      className="px-5 py-3 bg-blue-50/40 border-b border-blue-100"
+                                    >
+                                      {artComptages.length === 0 ? (
+                                        <p className="text-xs text-gray-400 italic">
+                                          Aucun comptage enregistré
+                                        </p>
+                                      ) : (
+                                        <table className="min-w-full text-xs mb-2">
+                                          <thead>
+                                            <tr className="text-gray-500 border-b border-gray-200">
+                                              <th className="text-left pb-1 pr-6 font-medium">
+                                                Source
+                                              </th>
+                                              <th className="text-left pb-1 pr-6 font-medium">
+                                                Date
+                                              </th>
+                                              <th className="text-right pb-1 pr-4 font-medium">
+                                                Qté
+                                              </th>
+                                              <th className="pb-1 w-6"></th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {artComptages.map((c) => (
+                                              <tr
+                                                key={c.id}
+                                                className="border-t border-gray-100"
+                                              >
+                                                <td className="pr-6 py-1">
+                                                  {c.saisie_admin ? (
+                                                    <span className="text-purple-600 font-medium">
+                                                      ✎ Admin
+                                                    </span>
+                                                  ) : (
+                                                    <span className="text-gray-600">
+                                                      {c.tablette_nom ?? "—"}
+                                                    </span>
+                                                  )}
+                                                </td>
+                                                <td className="pr-6 py-1 text-gray-500">
+                                                  {new Date(c.counted_at).toLocaleString(
+                                                    "fr-FR"
+                                                  )}
+                                                </td>
+                                                <td className="pr-4 py-1 text-right font-mono font-medium">
+                                                  {c.quantite}
+                                                </td>
+                                                <td className="py-1 text-right">
+                                                  {canEditComptages && (
+                                                    <button
+                                                      onClick={() =>
+                                                        handleDeleteComptage(c.id)
+                                                      }
+                                                      className="text-red-400 hover:text-red-600"
+                                                      title="Supprimer ce comptage"
+                                                    >
+                                                      ✕
+                                                    </button>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      )}
+                                      {canEditComptages && (
+                                        <div className="flex items-center gap-2 pt-2 border-t border-blue-100">
+                                          <span className="text-xs text-gray-500">
+                                            Saisie admin :
+                                          </span>
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            step="any"
+                                            placeholder="Quantité…"
+                                            value={addQty[lg.article_id] ?? ""}
+                                            onChange={(e) =>
+                                              setAddQty((prev) => ({
+                                                ...prev,
+                                                [lg.article_id]: e.target.value,
+                                              }))
+                                            }
+                                            className="border rounded px-2 py-1 text-xs w-28"
+                                          />
+                                          <button
+                                            onClick={() =>
+                                              handleAddAdminComptage(lg.article_id)
+                                            }
+                                            disabled={!addQty[lg.article_id]}
+                                            className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                                          >
+                                            + Ajouter
+                                          </button>
+                                        </div>
+                                      )}
+                                    </td>
+                                  </tr>
+                                )}
+                              </Fragment>
                             );
                           })}
                         </tbody>

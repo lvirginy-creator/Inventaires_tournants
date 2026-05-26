@@ -93,6 +93,36 @@ export interface CampagneDetail extends CampagneSummary {
   lignes: LigneCampagne[];
 }
 
+// ── Multi-comptages (admin) ───────────────────────────────────────────────────
+
+export interface ComptageDetail {
+  id: string;
+  article_id: string;
+  code_barre: string;
+  libelle: string;
+  quantite: number;
+  counted_at: string;
+  created_at: string;
+  tablette_nom: string | null;
+  saisie_admin: boolean;
+}
+
+export interface ComptagesParArticle {
+  article_id: string;
+  code_barre: string;
+  code_article: string;
+  libelle: string;
+  nb_comptages: number;
+  total: number;
+  comptages: ComptageDetail[];
+}
+
+export interface ComptagesCampagneResponse {
+  campagne_id: string;
+  nb_comptages: number;
+  articles: ComptagesParArticle[];
+}
+
 // ── Rapport d'inventaire ──────────────────────────────────────────────────────
 
 export interface RapportLigne {

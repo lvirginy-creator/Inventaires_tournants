@@ -70,6 +70,7 @@ app.include_router(campagnes.router, prefix="/api/v1")
 app.include_router(rapport.router, prefix="/api/v1")
 app.include_router(campagne_active.router, prefix="/api/v1")
 app.include_router(comptages.router, prefix="/api/v1")
+app.include_router(comptages.admin_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["monitoring"])
