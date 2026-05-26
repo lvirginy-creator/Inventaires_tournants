@@ -1,5 +1,6 @@
 from app.core.database import Base
 from app.models.article import Article
+from app.models.campagne import Campagne, LigneCampagne, StatutCampagne
 from app.models.magasin import Magasin
 from app.models.societe import Societe
 from app.models.tablette import SessionTablette, Tablette, TokenAppairage
@@ -14,4 +15,7 @@ __all__ = [
     "SessionTablette",
     "Utilisateur",
     "Article",
+    "Campagne",
+    "LigneCampagne",
+    "StatutCampagne",
 ]

@@ -24,6 +24,7 @@ from app.core.security import (
 from app.main import app
 from app.models import Magasin, Societe, Utilisateur
 from app.models.article import Article
+from app.models.campagne import Campagne, LigneCampagne
 from app.models.tablette import RoleTablette, SessionTablette, Tablette, TokenAppairage
 from app.models.utilisateur import RoleAdmin
 
@@ -155,6 +156,30 @@ async def article(societe: Societe, db: AsyncSession) -> Article:
     db.add(a)
     await db.flush()
     return a
+
+
+@pytest_asyncio.fixture
+async def campagne(magasin: Magasin, admin_user: Utilisateur, db: AsyncSession) -> Campagne:
+    c = Campagne(
+        magasin_id=magasin.id,
+        nom="Campagne Test",
+        created_by=admin_user.id,
+    )
+    db.add(c)
+    await db.flush()
+    return c
+
+
+@pytest_asyncio.fixture
+async def ligne_campagne(campagne: Campagne, article: Article, db: AsyncSession) -> LigneCampagne:
+    lc = LigneCampagne(
+        campagne_id=campagne.id,
+        article_id=article.id,
+        quantite_theorique=10,
+    )
+    db.add(lc)
+    await db.flush()
+    return lc
 
 
 @pytest_asyncio.fixture

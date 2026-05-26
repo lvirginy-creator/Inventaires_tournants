@@ -57,6 +57,48 @@ export interface Article {
   updated_at: string;
 }
 
+export type StatutCampagne = "brouillon" | "en_cours" | "terminee" | "validee";
+
+export interface ArticleResume {
+  id: string;
+  code_barre: string;
+  code_article: string;
+  libelle: string;
+  unite: string | null;
+}
+
+export interface LigneCampagne {
+  id: string;
+  campagne_id: string;
+  article_id: string;
+  quantite_theorique: number | null;
+  created_at: string;
+  article: ArticleResume;
+}
+
+export interface CampagneSummary {
+  id: string;
+  magasin_id: string;
+  nom: string;
+  statut: StatutCampagne;
+  date_debut: string | null;
+  date_fin: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  nb_articles: number;
+}
+
+export interface CampagneDetail extends CampagneSummary {
+  lignes: LigneCampagne[];
+}
+
+export interface LigneImportResponse {
+  added: number;
+  skipped: number;
+  errors: string[];
+}
+
 export interface ArticleImportResponse {
   created: number;
   updated: number;
