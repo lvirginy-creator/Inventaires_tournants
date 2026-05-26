@@ -37,7 +37,7 @@ def upgrade() -> None:
         sa.Column("nom", sa.String(200), nullable=False),
         sa.Column(
             "statut",
-            sa.Enum("brouillon", "en_cours", "terminee", "validee", name="statutcampagne"),
+            sa.Enum("brouillon", "en_cours", "terminee", "validee", name="statutcampagne", create_type=False),
             nullable=False,
             server_default="brouillon",
         ),
