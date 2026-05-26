@@ -13,9 +13,12 @@ export interface LigneCampagneLocal {
   article: ArticleLocal;
 }
 
+export type StatutCampagne = "brouillon" | "en_cours" | "terminee" | "validee";
+
 export interface CampagneLocal {
   id: string;
   nom: string;
+  statut: StatutCampagne;
   magasin_id: string;
   lignes: LigneCampagneLocal[];
   fetchedAt: string; // ISO date
