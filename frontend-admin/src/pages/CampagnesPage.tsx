@@ -3,6 +3,7 @@ import api from "@/api/client";
 import type {
   Article,
   CampagneDetail,
+  CampagneRapport,
   CampagneSummary,
   LigneImportResponse,
   Magasin,
@@ -66,6 +67,15 @@ export default function CampagnesPage() {
   const [importLoading, setImportLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Onglet détail et rapport
+  const [detailTab, setDetailTab] = useState<"articles" | "rapport">("articles");
+  const [rapport, setRapport] = useState<CampagneRapport | null>(null);
+  const [rapportLoading, setRapportLoading] = useState(false);
+  const [rapportSort, setRapportSort] = useState<{ col: keyof CampagneRapport["lignes"][0]; asc: boolean }>({
+    col: "ecart",
+    asc: true,
+  });
+
   // Toast notification
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const showToast = (message: string, type: "success" | "error" = "success") => {
@@ -100,6 +110,8 @@ export default function CampagnesPage() {
   const openDetail = async (c: CampagneSummary) => {
     const r = await api.get<CampagneDetail>(`/campagnes/${c.id}`);
     setSelected(r.data);
+    setDetailTab("articles");
+    setRapport(null);
     setAddArticleId("");
     setAddQt("");
     setAddError("");
@@ -216,6 +228,47 @@ export default function CampagnesPage() {
       setImportLoading(false);
     }
   };
+
+  const loadRapport = async () => {
+    if (!selected) return;
+    setRapportLoading(true);
+    try {
+      const r = await api.get<CampagneRapport>(`/campagnes/${selected.id}/rapport`);
+      setRapport(r.data);
+    } finally {
+      setRapportLoading(false);
+    }
+  };
+
+  const handleExport = async (format: "csv" | "xlsx") => {
+    if (!selected) return;
+    const resp = await api.get(`/campagnes/${selected.id}/rapport/export?format=${format}`, {
+      responseType: "blob",
+    });
+    const ext = format === "xlsx" ? "xlsx" : "csv";
+    const url = URL.createObjectURL(new Blob([resp.data]));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `rapport_${selected.nom.replace(/\s+/g, "_").slice(0, 40)}.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const toggleSort = (col: keyof CampagneRapport["lignes"][0]) => {
+    setRapportSort((prev) =>
+      prev.col === col ? { col, asc: !prev.asc } : { col, asc: true }
+    );
+  };
+
+  const sortedLignes = rapport
+    ? [...rapport.lignes].sort((a, b) => {
+        const va = a[rapportSort.col] ?? -Infinity;
+        const vb = b[rapportSort.col] ?? -Infinity;
+        if (va < vb) return rapportSort.asc ? -1 : 1;
+        if (va > vb) return rapportSort.asc ? 1 : -1;
+        return 0;
+      })
+    : [];
 
   const editable = selected?.statut === "brouillon";
   const magasinNom = (id: string) => magasins.find((m) => m.id === id)?.nom ?? id;
@@ -350,8 +403,165 @@ export default function CampagnesPage() {
               </div>
             )}
 
+            {/* ── Onglets Articles / Rapport ─────────────────────────────── */}
+            {selected.statut !== "brouillon" && (
+              <div className="flex gap-1 mb-4 border-b">
+                <button
+                  onClick={() => setDetailTab("articles")}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    detailTab === "articles"
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Articles
+                </button>
+                <button
+                  onClick={() => {
+                    setDetailTab("rapport");
+                    if (!rapport) loadRapport();
+                  }}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    detailTab === "rapport"
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Rapport
+                </button>
+              </div>
+            )}
+
+            {/* ── Vue Rapport ──────────────────────────────────────────────── */}
+            {detailTab === "rapport" && (
+              <div>
+                {rapportLoading ? (
+                  <p className="text-sm text-gray-400 text-center py-8">Chargement du rapport…</p>
+                ) : rapport ? (
+                  <>
+                    {/* Cartes résumé */}
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      {[
+                        { label: "Articles", value: rapport.nb_articles, color: "text-gray-700" },
+                        { label: "Comptés", value: rapport.nb_articles_comptes, color: "text-blue-700" },
+                        { label: "En écart", value: rapport.nb_articles_en_ecart, color: rapport.nb_articles_en_ecart > 0 ? "text-red-600" : "text-green-700" },
+                      ].map(({ label, value, color }) => (
+                        <div key={label} className="bg-gray-50 rounded-lg p-3 text-center">
+                          <p className={`text-2xl font-bold ${color}`}>{value}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Exports */}
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        onClick={() => handleExport("csv")}
+                        className="px-3 py-1.5 text-xs border rounded hover:bg-gray-50 font-medium"
+                      >
+                        ↓ CSV
+                      </button>
+                      <button
+                        onClick={() => handleExport("xlsx")}
+                        className="px-3 py-1.5 text-xs border rounded hover:bg-gray-50 font-medium"
+                      >
+                        ↓ XLSX
+                      </button>
+                      <button
+                        onClick={loadRapport}
+                        className="ml-auto px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        ↺ Actualiser
+                      </button>
+                    </div>
+
+                    {/* Table */}
+                    <div className="overflow-hidden rounded-lg border">
+                      <table className="min-w-full divide-y divide-gray-200 text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            {(
+                              [
+                                ["code_barre", "Code barre"],
+                                ["libelle", "Libellé"],
+                                ["quantite_theorique", "Théorique"],
+                                ["quantite_comptee", "Compté"],
+                                ["ecart", "Écart"],
+                                ["ecart_pct", "Écart %"],
+                              ] as [keyof CampagneRapport["lignes"][0], string][]
+                            ).map(([col, label]) => (
+                              <th
+                                key={col}
+                                onClick={() => toggleSort(col)}
+                                className="px-3 py-2 text-left font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                              >
+                                {label}
+                                {rapportSort.col === col && (
+                                  <span className="ml-1">{rapportSort.asc ? "▲" : "▼"}</span>
+                                )}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {sortedLignes.length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="px-4 py-6 text-center text-gray-400">
+                                Aucun article
+                              </td>
+                            </tr>
+                          )}
+                          {sortedLignes.map((lg) => {
+                            const rowCls =
+                              lg.ecart === null
+                                ? ""
+                                : lg.ecart === 0
+                                  ? "bg-green-50"
+                                  : "bg-red-50";
+                            const ecartCls =
+                              lg.ecart === null
+                                ? "text-gray-400"
+                                : lg.ecart === 0
+                                  ? "text-green-700 font-medium"
+                                  : "text-red-600 font-semibold";
+                            return (
+                              <tr key={lg.article_id} className={rowCls}>
+                                <td className="px-3 py-2 font-mono">{lg.code_barre}</td>
+                                <td className="px-3 py-2 max-w-[200px] truncate" title={lg.libelle}>
+                                  {lg.libelle}
+                                </td>
+                                <td className="px-3 py-2 text-right text-gray-600">
+                                  {lg.quantite_theorique ?? "—"}
+                                </td>
+                                <td className="px-3 py-2 text-right font-medium">
+                                  {lg.quantite_comptee}
+                                </td>
+                                <td className={`px-3 py-2 text-right ${ecartCls}`}>
+                                  {lg.ecart !== null
+                                    ? (lg.ecart > 0 ? "+" : "") + lg.ecart
+                                    : "—"}
+                                </td>
+                                <td className={`px-3 py-2 text-right ${ecartCls}`}>
+                                  {lg.ecart_pct !== null
+                                    ? (lg.ecart_pct > 0 ? "+" : "") +
+                                      lg.ecart_pct.toFixed(1) +
+                                      " %"
+                                    : "—"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            )}
+
+            {/* ── Vue Articles ─────────────────────────────────────────────── */}
             {/* Actions articles (brouillon) */}
-            {editable && (
+            {detailTab === "articles" && editable && (
               <div className="flex flex-wrap gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
                 <select
                   value={addArticleId}
@@ -392,7 +602,7 @@ export default function CampagnesPage() {
             )}
 
             {/* Table des lignes */}
-            <div className="overflow-hidden rounded-lg border">
+            {detailTab === "articles" && (<div className="overflow-hidden rounded-lg border">
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50">
                   <tr>
@@ -444,7 +654,7 @@ export default function CampagnesPage() {
                   {selected.lignes.length} article{selected.lignes.length > 1 ? "s" : ""}
                 </div>
               )}
-            </div>
+            </div>)}
           </div>
         )}
       </div>

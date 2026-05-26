@@ -93,6 +93,32 @@ export interface CampagneDetail extends CampagneSummary {
   lignes: LigneCampagne[];
 }
 
+// ── Rapport d'inventaire ──────────────────────────────────────────────────────
+
+export interface RapportLigne {
+  article_id: string;
+  code_barre: string;
+  code_article: string;
+  libelle: string;
+  unite: string | null;
+  quantite_theorique: number | null;
+  quantite_comptee: number;
+  ecart: number | null;
+  ecart_pct: number | null;
+}
+
+export interface CampagneRapport {
+  campagne_id: string;
+  campagne_nom: string;
+  magasin_id: string;
+  statut: StatutCampagne;
+  nb_articles: number;
+  nb_articles_comptes: number;
+  nb_articles_ok: number;
+  nb_articles_en_ecart: number;
+  lignes: RapportLigne[];
+}
+
 export interface LigneImportResponse {
   added: number;
   skipped: number;
