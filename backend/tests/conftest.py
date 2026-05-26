@@ -15,10 +15,16 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.database import Base, get_db
-from app.core.security import create_admin_access_token, hash_password
+from app.core.security import (
+    create_admin_access_token,
+    create_tablette_token,
+    hash_jwt,
+    hash_password,
+)
 from app.main import app
 from app.models import Magasin, Societe, Utilisateur
-from app.models.tablette import TokenAppairage
+from app.models.article import Article
+from app.models.tablette import RoleTablette, SessionTablette, Tablette, TokenAppairage
 from app.models.utilisateur import RoleAdmin
 
 TEST_DATABASE_URL = os.getenv(
@@ -99,6 +105,56 @@ async def admin_user(db: AsyncSession) -> Utilisateur:
 async def auth_headers(admin_user: Utilisateur) -> dict[str, str]:
     token = create_admin_access_token(admin_user.id, admin_user.role.value)
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def tablette(magasin: Magasin, db: AsyncSession) -> Tablette:
+    t = Tablette(
+        magasin_id=magasin.id,
+        nom="Tablette Test",
+        device_id="device-test-001",
+    )
+    db.add(t)
+    await db.flush()
+    return t
+
+
+@pytest_asyncio.fixture
+async def session_tablette(
+    tablette: Tablette, magasin: Magasin, db: AsyncSession
+) -> SessionTablette:
+    session_id = uuid.uuid4()
+    token = create_tablette_token(session_id, tablette.id, magasin.id, RoleTablette.operateur.value)
+    s = SessionTablette(
+        id=session_id,
+        tablette_id=tablette.id,
+        magasin_id=magasin.id,
+        role=RoleTablette.operateur,
+        jwt_token_hash=hash_jwt(token),
+    )
+    db.add(s)
+    await db.flush()
+    s._token = token  # type: ignore[attr-defined]
+    return s
+
+
+@pytest_asyncio.fixture
+async def tablette_headers(session_tablette: SessionTablette) -> dict[str, str]:
+    return {"Authorization": f"Bearer {session_tablette._token}"}  # type: ignore[attr-defined]
+
+
+@pytest_asyncio.fixture
+async def article(societe: Societe, db: AsyncSession) -> Article:
+    a = Article(
+        societe_id=societe.id,
+        code_barre=f"CB-{uuid.uuid4().hex[:8]}",
+        code_article=f"ART-{uuid.uuid4().hex[:6]}",
+        libelle="Article Test",
+        unite="PCE",
+    )
+    db.add(a)
+    await db.flush()
+    return a
 
 
 @pytest_asyncio.fixture

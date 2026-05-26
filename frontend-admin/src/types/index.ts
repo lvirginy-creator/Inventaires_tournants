@@ -45,6 +45,24 @@ export interface Utilisateur {
   created_at: string;
 }
 
+export interface Article {
+  id: string;
+  societe_id: string;
+  code_barre: string;
+  code_article: string;
+  libelle: string;
+  unite: string | null;
+  actif: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ArticleImportResponse {
+  created: number;
+  updated: number;
+  errors: string[];
+}
+
 export interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
