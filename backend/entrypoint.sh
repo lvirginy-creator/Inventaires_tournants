@@ -2,8 +2,19 @@
 set -e
 
 echo "[entrypoint] Attente de la base de données…"
-# Postgres peut mettre quelques secondes à accepter des connexions même après healthcheck
-sleep 2
+until python -c "
+import socket, sys
+try:
+    s = socket.create_connection(('db', 5432), timeout=2)
+    s.close()
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
+" 2>/dev/null; do
+    echo "[entrypoint]   ... DB pas encore prête, nouvelle tentative dans 2s"
+    sleep 2
+done
+echo "[entrypoint] DB prête."
 
 echo "[entrypoint] Application des migrations Alembic…"
 alembic upgrade head
