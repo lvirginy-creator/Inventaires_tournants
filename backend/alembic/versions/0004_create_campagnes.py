@@ -29,7 +29,7 @@ def upgrade() -> None:
         "validee",
         name="statutcampagne",
     )
-    statut_enum.create(op.get_bind())
+    statut_enum.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
         "campagnes",
