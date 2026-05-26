@@ -30,7 +30,9 @@ git pull origin main
 # ── 2. Build et redémarrage des conteneurs ────────────────────────────────────
 echo ""
 echo "[2/4] Build et démarrage des conteneurs..."
-$DC -f "$COMPOSE_FILE" up -d --build --remove-orphans
+# Down nécessaire pour éviter le bug ContainerConfig de docker-compose v1.29.2
+$DC -f "$COMPOSE_FILE" down --remove-orphans
+$DC -f "$COMPOSE_FILE" up -d --build
 
 # ── 3. Vérification que le backend est sain avant les migrations ──────────────
 echo ""
