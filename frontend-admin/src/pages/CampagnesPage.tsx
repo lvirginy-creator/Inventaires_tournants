@@ -59,6 +59,7 @@ export default function CampagnesPage() {
   const [articleSearch, setArticleSearch] = useState("");
   const [articleSearchResults, setArticleSearchResults] = useState<Article[]>([]);
   const [articleSearchLoading, setArticleSearchLoading] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<{ code_article: string; libelle: string; articles: Article[] } | null>(null);
   const [addQt, setAddQt] = useState("");
   const [addError, setAddError] = useState("");
 
@@ -123,6 +124,7 @@ export default function CampagnesPage() {
     setExpandedArticle(null);
     setArticleSearch("");
     setArticleSearchResults([]);
+    setSelectedGroup(null);
     setAddQt("");
     setAddError("");
   };
@@ -219,11 +221,11 @@ export default function CampagnesPage() {
     fetchCampagnes();
   };
 
-  const handleAddByCodeArticle = async (group: { articles: Article[] }) => {
-    if (!selected) return;
+  const handleAddByCodeArticle = async () => {
+    if (!selected || !selectedGroup) return;
     setAddError("");
     const qt = addQt ? parseFloat(addQt) : null;
-    const toAdd = group.articles.filter(
+    const toAdd = selectedGroup.articles.filter(
       (a) => !selected.lignes.some((l) => l.article_id === a.id)
     );
     const errors: string[] = [];
@@ -235,11 +237,12 @@ export default function CampagnesPage() {
         });
       } catch (err: unknown) {
         const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-        errors.push(detail ?? `Erreur ajout ${article.code_barre}`);
+        errors.push(detail ?? `Erreur ${article.code_barre}`);
       }
     }
     if (errors.length > 0) setAddError(errors.join(" | "));
     if (toAdd.length > errors.length) {
+      setSelectedGroup(null);
       setArticleSearch("");
       setArticleSearchResults([]);
       setAddQt("");
@@ -247,9 +250,12 @@ export default function CampagnesPage() {
     }
   };
 
-  const handleRemoveArticle = async (articleId: string) => {
+  const handleRemoveCodeArticle = async (codeArticle: string) => {
     if (!selected) return;
-    await api.delete(`/campagnes/${selected.id}/articles/${articleId}`);
+    const toRemove = selected.lignes.filter((l) => l.article.code_article === codeArticle);
+    for (const ligne of toRemove) {
+      await api.delete(`/campagnes/${selected.id}/articles/${ligne.article_id}`);
+    }
     refreshSelected();
   };
 
@@ -373,6 +379,18 @@ export default function CampagnesPage() {
     selected?.statut === "en_cours" || selected?.statut === "terminee";
 
   const editable = selected?.statut === "brouillon";
+
+  // Lignes groupées par code_article pour l'affichage
+  const lignesGroupees = useMemo(() => {
+    if (!selected) return [];
+    const map = new Map<string, typeof selected.lignes>();
+    for (const l of selected.lignes) {
+      const key = l.article.code_article;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(l);
+    }
+    return Array.from(map.values());
+  }, [selected?.lignes]);
   const magasinNom = (id: string) => magasins.find((m) => m.id === id)?.nom ?? id;
 
   // ── Rendu ────────────────────────────────────────────────────────────────────
@@ -792,133 +810,168 @@ export default function CampagnesPage() {
             {/* Actions articles (brouillon) */}
             {detailTab === "articles" && editable && (
               <div className="mb-4 p-3 bg-gray-50 rounded-lg space-y-2">
-                <div className="flex gap-2 flex-wrap">
-                  <div className="flex-1 min-w-[220px] relative">
-                    <input
-                      type="text"
-                      placeholder="Rechercher par code article ou libellé…"
-                      value={articleSearch}
-                      onChange={(e) => setArticleSearch(e.target.value)}
-                      className="w-full border rounded px-3 py-1.5 text-sm"
-                      autoComplete="off"
-                    />
-                    {/* Dropdown résultats */}
-                    {articleSearch.trim() && (
-                      <div className="absolute z-10 left-0 right-0 bg-white border rounded shadow-lg max-h-56 overflow-y-auto mt-1">
-                        {articleSearchLoading && (
-                          <p className="text-xs text-gray-400 px-3 py-2">Recherche…</p>
-                        )}
-                        {!articleSearchLoading && groupedArticleResults.length === 0 && (
-                          <p className="text-xs text-gray-400 px-3 py-2">Aucun résultat</p>
-                        )}
-                        {groupedArticleResults.map((group) => {
-                          const alreadyAll = group.articles.every((a) =>
-                            selected.lignes.some((l) => l.article_id === a.id)
-                          );
-                          return (
-                            <div
-                              key={group.code_article}
-                              className="flex items-center justify-between px-3 py-2 border-b last:border-0 hover:bg-gray-50"
-                            >
-                              <div className="min-w-0 mr-2">
-                                <span className="text-xs font-mono text-blue-700 font-medium">
-                                  {group.code_article}
-                                </span>
-                                <span className="mx-1 text-gray-300">—</span>
-                                <span className="text-sm text-gray-800">{group.libelle}</span>
-                                {group.articles.length > 1 && (
-                                  <span className="ml-2 text-xs text-gray-400">
-                                    {group.articles.length} codes barres
-                                  </span>
-                                )}
-                              </div>
+                {/* Étape 1 : recherche */}
+                {!selectedGroup && (
+                  <div className="flex gap-2 flex-wrap items-start">
+                    <div className="flex-1 min-w-[260px] relative">
+                      <input
+                        type="text"
+                        placeholder="Rechercher par code article ou libellé…"
+                        value={articleSearch}
+                        onChange={(e) => setArticleSearch(e.target.value)}
+                        className="w-full border rounded px-3 py-1.5 text-sm"
+                        autoComplete="off"
+                      />
+                      {articleSearch.trim() && (
+                        <div className="absolute z-10 left-0 right-0 bg-white border rounded shadow-lg max-h-56 overflow-y-auto mt-1">
+                          {articleSearchLoading && (
+                            <p className="text-xs text-gray-400 px-3 py-2">Recherche…</p>
+                          )}
+                          {!articleSearchLoading && groupedArticleResults.length === 0 && (
+                            <p className="text-xs text-gray-400 px-3 py-2">Aucun résultat</p>
+                          )}
+                          {groupedArticleResults.map((group) => {
+                            const alreadyAll = group.articles.every((a) =>
+                              selected.lignes.some((l) => l.article_id === a.id)
+                            );
+                            return (
                               <button
-                                onClick={() => handleAddByCodeArticle(group)}
+                                key={group.code_article}
                                 disabled={alreadyAll}
-                                className="flex-shrink-0 text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-40 disabled:cursor-default"
+                                onClick={() => {
+                                  setSelectedGroup(group);
+                                  setArticleSearch("");
+                                  setArticleSearchResults([]);
+                                }}
+                                className="w-full text-left flex items-center justify-between px-3 py-2 border-b last:border-0 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-default"
                               >
-                                {alreadyAll ? "Déjà présent" : "Ajouter"}
+                                <span>
+                                  <span className="text-xs font-mono text-blue-700 font-medium">{group.code_article}</span>
+                                  <span className="mx-1 text-gray-300">—</span>
+                                  <span className="text-sm text-gray-800">{group.libelle}</span>
+                                  {group.articles.length > 1 && (
+                                    <span className="ml-2 text-xs text-gray-400">{group.articles.length} codes barres</span>
+                                  )}
+                                </span>
+                                {alreadyAll && <span className="text-xs text-gray-400 ml-2">Déjà présent</span>}
                               </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => { setShowImport(true); setImportResult(null); setImportError(""); }}
+                      className="px-3 py-1.5 text-sm border rounded hover:bg-gray-100 whitespace-nowrap"
+                    >
+                      Importer CSV / XLSX
+                    </button>
                   </div>
-                  <input
-                    type="number"
-                    placeholder="Qté théorique"
-                    value={addQt}
-                    onChange={(e) => setAddQt(e.target.value)}
-                    className="border rounded px-3 py-1.5 text-sm w-32"
-                    min="0"
-                    step="any"
-                  />
-                  <button
-                    onClick={() => { setShowImport(true); setImportResult(null); setImportError(""); }}
-                    className="px-3 py-1.5 text-sm border rounded hover:bg-gray-100"
-                  >
-                    Importer CSV / XLSX
-                  </button>
-                </div>
+                )}
+
+                {/* Étape 2 : quantité + confirmation */}
+                {selectedGroup && (
+                  <div className="flex gap-2 flex-wrap items-center p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-mono text-blue-700 font-semibold">{selectedGroup.code_article}</span>
+                      <span className="mx-1 text-gray-400">—</span>
+                      <span className="text-sm text-gray-800">{selectedGroup.libelle}</span>
+                      {selectedGroup.articles.length > 1 && (
+                        <span className="ml-2 text-xs text-gray-500">{selectedGroup.articles.length} codes barres</span>
+                      )}
+                    </div>
+                    <input
+                      type="number"
+                      placeholder="Qté théorique"
+                      value={addQt}
+                      onChange={(e) => setAddQt(e.target.value)}
+                      className="border rounded px-3 py-1.5 text-sm w-36"
+                      min="0"
+                      step="any"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleAddByCodeArticle}
+                      className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                    >
+                      Ajouter
+                    </button>
+                    <button
+                      onClick={() => { setSelectedGroup(null); setAddQt(""); setAddError(""); }}
+                      className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
                 {addError && <p className="text-xs text-red-600">{addError}</p>}
               </div>
             )}
 
-            {/* Table des lignes */}
-            {detailTab === "articles" && (<div className="overflow-hidden rounded-lg border">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {["Code barre", "Code article", "Libellé", "Unité", "Qté théorique", ""].map(
-                      (h) => (
-                        <th
-                          key={h}
-                          className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
-                        >
+            {/* Table des lignes — groupée par code_article */}
+            {detailTab === "articles" && (
+              <div className="overflow-hidden rounded-lg border">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {["Code article", "Libellé", "Codes barres", "Unité", "Qté théorique", ""].map((h) => (
+                        <th key={h} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                           {h}
                         </th>
-                      )
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {lignesGroupees.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-6 text-center text-gray-400">
+                          Aucun article dans cette campagne
+                        </td>
+                      </tr>
                     )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {selected.lignes.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-6 text-center text-gray-400">
-                        Aucun article dans cette campagne
-                      </td>
-                    </tr>
-                  )}
-                  {selected.lignes.map((l) => (
-                    <tr key={l.id}>
-                      <td className="px-4 py-2 font-mono text-xs">{l.article.code_barre}</td>
-                      <td className="px-4 py-2 font-mono text-xs">{l.article.code_article}</td>
-                      <td className="px-4 py-2">{l.article.libelle}</td>
-                      <td className="px-4 py-2 text-gray-500">{l.article.unite ?? "—"}</td>
-                      <td className="px-4 py-2 text-right">
-                        {l.quantite_theorique != null ? l.quantite_theorique : "—"}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        {editable && (
-                          <button
-                            onClick={() => handleRemoveArticle(l.article_id)}
-                            className="text-xs text-red-500 hover:underline"
-                          >
-                            Retirer
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {selected.lignes.length > 0 && (
-                <div className="px-4 py-2 text-xs text-gray-400 border-t">
-                  {selected.lignes.length} article{selected.lignes.length > 1 ? "s" : ""}
-                </div>
-              )}
-            </div>)}
+                    {lignesGroupees.map((groupe) => {
+                      const first = groupe[0];
+                      return (
+                        <tr key={first.article.code_article}>
+                          <td className="px-4 py-2 font-mono text-xs text-blue-700 font-medium">
+                            {first.article.code_article}
+                          </td>
+                          <td className="px-4 py-2">{first.article.libelle}</td>
+                          <td className="px-4 py-2 font-mono text-xs text-gray-500 space-y-0.5">
+                            {groupe.map((l) => (
+                              <div key={l.id}>{l.article.code_barre}</div>
+                            ))}
+                          </td>
+                          <td className="px-4 py-2 text-gray-500">{first.article.unite ?? "—"}</td>
+                          <td className="px-4 py-2 text-right">
+                            {first.quantite_theorique != null ? first.quantite_theorique : "—"}
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            {editable && (
+                              <button
+                                onClick={() => handleRemoveCodeArticle(first.article.code_article)}
+                                className="text-xs text-red-500 hover:underline"
+                              >
+                                Retirer
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {lignesGroupees.length > 0 && (
+                  <div className="px-4 py-2 text-xs text-gray-400 border-t">
+                    {lignesGroupees.length} article{lignesGroupees.length > 1 ? "s" : ""}
+                    {selected.lignes.length !== lignesGroupees.length && (
+                      <span className="ml-1 text-gray-300">({selected.lignes.length} codes barres)</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
