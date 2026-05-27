@@ -14,12 +14,14 @@ export default function CountPage() {
   const [campagne, setCampagne] = useState<CampagneLocal | null>(null);
   const [state, setState] = useState<CountState>("scan");
   const [codeBarre, setCodeBarre] = useState("");
+  const [codeArticle, setCodeArticle] = useState("");
   const [article, setArticle] = useState<ArticleLocal | null>(null);
   const [quantite, setQuantite] = useState("");
   const [error, setError] = useState("");
   const [lastSaved, setLastSaved] = useState<{ libelle: string; quantite: number } | null>(null);
 
   const barcodeRef = useRef<HTMLInputElement>(null);
+  const codeArticleRef = useRef<HTMLInputElement>(null);
   const quantiteRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -27,27 +29,42 @@ export default function CountPage() {
     barcodeRef.current?.focus();
   }, []);
 
-  // Autofocus sur le champ quantité quand article trouvé
   useEffect(() => {
     if (state === "confirm") quantiteRef.current?.focus();
   }, [state]);
+
+  const findAndConfirm = (found: ArticleLocal | undefined) => {
+    if (!found) return false;
+    setArticle(found);
+    setState("confirm");
+    setError("");
+    return true;
+  };
 
   const handleBarcodeSubmit = async () => {
     setError("");
     const code = codeBarre.trim();
     if (!code) return;
 
-    // Essayer code barre d'abord, puis code article
-    const found = (await getArticleByCodeBarre(code)) ?? (await getArticleByCodeArticle(code));
-    if (!found) {
-      setError(`"${code}" introuvable (code barre ou code article)`);
+    const found = await getArticleByCodeBarre(code);
+    if (!findAndConfirm(found)) {
+      setError(`Code barre "${code}" introuvable`);
       setCodeBarre("");
       barcodeRef.current?.focus();
-      return;
     }
+  };
 
-    setArticle(found);
-    setState("confirm");
+  const handleCodeArticleSubmit = async () => {
+    setError("");
+    const code = codeArticle.trim();
+    if (!code) return;
+
+    const found = await getArticleByCodeArticle(code);
+    if (!findAndConfirm(found)) {
+      setError(`Code article "${code}" introuvable`);
+      setCodeArticle("");
+      codeArticleRef.current?.focus();
+    }
   };
 
   const handleQuantiteSubmit = async () => {
@@ -68,16 +85,15 @@ export default function CountPage() {
     };
     await saveComptage(comptage);
 
-    // Mettre à jour le compteur en attente
     const pending = await getPendingComptages();
     setPendingCount(pending.length);
 
     setLastSaved({ libelle: article.libelle, quantite: q });
     setState("saved");
 
-    // Reset pour le prochain scan
     setTimeout(() => {
       setCodeBarre("");
+      setCodeArticle("");
       setQuantite("");
       setArticle(null);
       setState("scan");
@@ -121,11 +137,11 @@ export default function CountPage() {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col p-5 gap-5">
-        {/* Zone scan */}
+      <main className="flex-1 flex flex-col p-5 gap-4">
+        {/* Zone scan code barre */}
         <div className="bg-gray-800 rounded-2xl p-5">
           <label className="block text-xs text-gray-400 uppercase font-semibold mb-3 tracking-wide">
-            Code barre ou code article
+            Code barre
           </label>
           <input
             ref={barcodeRef}
@@ -133,7 +149,7 @@ export default function CountPage() {
             value={codeBarre}
             onChange={(e) => setCodeBarre(e.target.value)}
             onKeyDown={(e) => handleKeyDown(e, handleBarcodeSubmit)}
-            placeholder="Scanner ou saisir code barre / code article…"
+            placeholder="Scanner ou saisir le code barre…"
             className="w-full bg-gray-700 text-white text-xl font-mono px-4 py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
             autoComplete="off"
             inputMode="none"
@@ -144,6 +160,34 @@ export default function CountPage() {
               onClick={handleBarcodeSubmit}
               disabled={!codeBarre.trim()}
               className="mt-3 w-full bg-blue-600 text-white font-bold py-4 rounded-xl text-lg disabled:opacity-40"
+            >
+              Rechercher →
+            </button>
+          )}
+        </div>
+
+        {/* Zone saisie code article */}
+        <div className="bg-gray-800 rounded-2xl p-5">
+          <label className="block text-xs text-gray-400 uppercase font-semibold mb-3 tracking-wide">
+            Code article
+          </label>
+          <input
+            ref={codeArticleRef}
+            type="text"
+            value={codeArticle}
+            onChange={(e) => setCodeArticle(e.target.value)}
+            onKeyDown={(e) => handleKeyDown(e, handleCodeArticleSubmit)}
+            placeholder="Saisir le code article…"
+            className="w-full bg-gray-700 text-white text-xl font-mono px-4 py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500"
+            autoComplete="off"
+            inputMode="text"
+            disabled={state !== "scan"}
+          />
+          {state === "scan" && (
+            <button
+              onClick={handleCodeArticleSubmit}
+              disabled={!codeArticle.trim()}
+              className="mt-3 w-full bg-purple-700 text-white font-bold py-4 rounded-xl text-lg disabled:opacity-40"
             >
               Rechercher →
             </button>
