@@ -41,8 +41,9 @@ export default function LoginPage() {
       });
       navigate("/", { replace: true });
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
+        ?.detail;
+      const msg = typeof detail === "string" ? detail : undefined;
       setError(msg ?? "Identifiants incorrects");
     } finally {
       setLoading(false);
