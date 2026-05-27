@@ -4,7 +4,7 @@ import { useAuthStore } from "@/store/auth";
 import { useSyncStore } from "@/store/sync";
 import { getCampagneActive, getPendingComptages, db } from "@/db/schema";
 import { runSync } from "@/db/sync";
-import type { CampagneLocal } from "@/types";
+import type { CampagneLocal, ComptageLocal } from "@/types";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -13,18 +13,23 @@ export default function DashboardPage() {
     useSyncStore();
 
   const [campagne, setCampagne] = useState<CampagneLocal | null>(null);
-  const [countedArticles, setCountedArticles] = useState(0);
+  const [comptagesMap, setComptagesMap] = useState<Map<string, ComptageLocal[]>>(new Map());
   const [loadingCampagne, setLoadingCampagne] = useState(true);
 
   const refreshState = async () => {
     const c = await getCampagneActive();
     setCampagne(c ?? null);
     if (c) {
-      const counted = await db.comptages
-        .where("campagne_id")
-        .equals(c.id)
-        .count();
-      setCountedArticles(counted);
+      const all = await db.comptages.where("campagne_id").equals(c.id).toArray();
+      const map = new Map<string, ComptageLocal[]>();
+      for (const cpt of all) {
+        const arr = map.get(cpt.article_id) ?? [];
+        arr.push(cpt);
+        map.set(cpt.article_id, arr);
+      }
+      setComptagesMap(map);
+    } else {
+      setComptagesMap(new Map());
     }
     const pending = await getPendingComptages();
     setPendingCount(pending.length);
@@ -67,6 +72,10 @@ export default function DashboardPage() {
     error: "bg-red-600 hover:bg-red-700",
   };
 
+  const countedCount = campagne
+    ? campagne.lignes.filter((l) => comptagesMap.has(l.article_id)).length
+    : 0;
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
@@ -86,7 +95,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <main className="flex-1 p-5 space-y-4">
+      <main className="flex-1 p-5 space-y-4 pb-2">
         {/* Campagne active */}
         <div className="bg-white rounded-2xl shadow p-5">
           {loadingCampagne ? (
@@ -113,22 +122,20 @@ export default function DashboardPage() {
               </div>
               <p className="text-xl font-bold text-gray-900 mt-1">{campagne.nom}</p>
 
-              {/* Barre de progression (uniquement si en cours) */}
-              {campagne.statut === "en_cours" && (
+              {/* Barre de progression */}
+              {campagne.statut === "en_cours" && campagne.lignes.length > 0 && (
                 <div className="mt-4">
                   <div className="flex items-center justify-between text-sm mb-1">
                     <span className="text-gray-600">Articles comptés</span>
                     <span className="font-semibold text-gray-900">
-                      {countedArticles} / {campagne.lignes.length}
+                      {countedCount} / {campagne.lignes.length}
                     </span>
                   </div>
                   <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-blue-600 rounded-full transition-all"
                       style={{
-                        width: campagne.lignes.length
-                          ? `${Math.min(100, (countedArticles / campagne.lignes.length) * 100)}%`
-                          : "0%",
+                        width: `${Math.min(100, (countedCount / campagne.lignes.length) * 100)}%`,
                       }}
                     />
                   </div>
@@ -143,6 +150,59 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+
+        {/* Liste des articles à inventorier */}
+        {campagne?.statut === "en_cours" && campagne.lignes.length > 0 && (
+          <div className="bg-white rounded-2xl shadow overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-700">Articles à inventorier</h2>
+            </div>
+            <ul className="divide-y divide-gray-100">
+              {campagne.lignes.map((ligne) => {
+                const cpts = comptagesMap.get(ligne.article_id);
+                const isCounted = !!cpts && cpts.length > 0;
+                const totalQty = cpts
+                  ? cpts.reduce((sum, c) => sum + c.quantite, 0)
+                  : 0;
+                return (
+                  <li
+                    key={ligne.id}
+                    className={`flex items-center justify-between px-5 py-3 ${
+                      isCounted ? "bg-green-50" : ""
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0 mr-3">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {ligne.article.libelle}
+                      </p>
+                      <p className="text-xs text-gray-400 font-mono mt-0.5">
+                        {ligne.article.code_article}
+                        {ligne.article.code_barre ? ` · ${ligne.article.code_barre}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0 text-right">
+                      {isCounted ? (
+                        <div>
+                          <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded-full">
+                            ✓ Compté
+                          </span>
+                          <p className="text-sm font-bold text-green-700 mt-1">
+                            {totalQty % 1 === 0 ? totalQty : totalQty.toFixed(3)}
+                            {ligne.article.unite ? ` ${ligne.article.unite}` : ""}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-400 text-xs font-medium px-2 py-1 rounded-full">
+                          ○ À compter
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
         {/* Badge comptages en attente */}
         {pendingCount > 0 && (
