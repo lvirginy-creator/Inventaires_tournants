@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import { getCampagneActive, getArticleByCodeBarre, saveComptage, getPendingComptages } from "@/db/schema";
 import { useSyncStore } from "@/store/sync";
-import { useAuthStore } from "@/store/auth";
 import type { ArticleLocal, CampagneLocal } from "@/types";
 
 type CountState = "scan" | "confirm" | "saved";
@@ -11,7 +10,6 @@ type CountState = "scan" | "confirm" | "saved";
 export default function CountPage() {
   const navigate = useNavigate();
   const { setPendingCount } = useSyncStore();
-  const { magasin_id } = useAuthStore();
 
   const [campagne, setCampagne] = useState<CampagneLocal | null>(null);
   const [state, setState] = useState<CountState>("scan");

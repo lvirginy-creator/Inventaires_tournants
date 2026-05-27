@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import LoginPage from "@/pages/LoginPage";
+import PairingPage from "@/pages/PairingPage";
 import DashboardPage from "@/pages/DashboardPage";
 import CountPage from "@/pages/CountPage";
 import SettingsPage from "@/pages/SettingsPage";
@@ -11,12 +12,18 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
+function RequirePaired({ children }: { children: React.ReactNode }) {
+  const tablette_id = useAuthStore((s) => s.tablette_id);
+  return tablette_id ? <>{children}</> : <Navigate to="/pair" replace />;
+}
+
 export default function App() {
   return (
     <>
       <OfflineBanner />
       <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/pair" element={<PairingPage />} />
+      <Route path="/login" element={<RequirePaired><LoginPage /></RequirePaired>} />
       <Route
         path="/"
         element={

@@ -5,6 +5,7 @@ import type { TabletteAuth } from "@/types";
 interface AuthState extends TabletteAuth {
   accessToken: string;
   setAuth: (auth: TabletteAuth & { access_token: string }) => void;
+  setTabletteId: (tablette_id: string) => void;
   logout: () => void;
   isAuthenticated: () => boolean;
 }
@@ -33,7 +34,9 @@ export const useAuthStore = create<AuthState>()(
           session_id: auth.session_id,
           role: auth.role,
         }),
-      logout: () => set({ ...EMPTY }),
+      setTabletteId: (tablette_id) => set({ tablette_id }),
+      logout: () =>
+        set((state) => ({ ...EMPTY, tablette_id: state.tablette_id })),
       isAuthenticated: () => Boolean(get().accessToken),
     }),
     {
