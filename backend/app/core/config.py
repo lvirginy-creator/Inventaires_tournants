@@ -25,16 +25,18 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "production"
 
     # SMTP
+    # Port 587 (STARTTLS) : SMTP_USE_TLS=false, SMTP_STARTTLS=true  (défaut)
+    # Port 465 (SSL)      : SMTP_USE_TLS=true,  SMTP_STARTTLS=false
+    # Port 25/1025 (plain): SMTP_USE_TLS=false, SMTP_STARTTLS=false
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""
-    SMTP_USE_TLS: bool = True
+    SMTP_USE_TLS: bool = False
+    SMTP_STARTTLS: bool = True
     MAIL_FROM_ADDRESS: str = ""
     MAIL_FROM_NAME: str = "Inventaire G2C"
     MAIL_REPLY_TO: str = ""
-    MAIL_RETRY_MAX_ATTEMPTS: int = 3
-    MAIL_RETRY_DELAYS_SECONDS: str = "5,30,300"
 
     @property
     def is_development(self) -> bool:

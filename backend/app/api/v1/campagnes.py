@@ -2,7 +2,7 @@ import csv
 import io
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -23,7 +23,7 @@ from app.schemas.campagne import (
     LigneCampagneRead,
     LigneImportResponse,
 )
-from app.services.email import send_validation_email_background
+from app.services.email import send_validation_email
 
 router = APIRouter(prefix="/campagnes", tags=["campagnes"])
 
@@ -242,6 +242,7 @@ async def cloturer_campagne(
 @router.post("/{campagne_id}/valider", response_model=CampagneRead)
 async def valider_campagne(
     campagne_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     _: Utilisateur = Depends(require_admin_role),
     db: AsyncSession = Depends(get_db),
 ) -> CampagneRead:
@@ -299,9 +300,10 @@ async def valider_campagne(
     campagne.updated_at = now_utc()
     await db.commit()
 
-    # ── E-mail fire & forget (ne bloque pas la réponse) ─────────────────────────
+    # ── E-mail en tâche de fond (ne bloque pas la réponse) ──────────────────────
     if magasin.email_responsable:
-        send_validation_email_background(
+        background_tasks.add_task(
+            send_validation_email,
             to=magasin.email_responsable,
             campagne_nom=campagne.nom,
             magasin_nom=magasin.nom,

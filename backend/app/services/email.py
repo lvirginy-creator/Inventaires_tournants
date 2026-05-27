@@ -1,15 +1,15 @@
 """Service d'envoi d'e-mails via SMTP async (aiosmtplib + Jinja2).
 
 Configuration requise dans .env :
-    SMTP_HOST=localhost          # Mailpit en dev
-    SMTP_PORT=1025               # Mailpit en dev | 587 prod STARTTLS | 465 prod TLS
-    SMTP_USE_TLS=false           # false = plain/STARTTLS auto | true = TLS implicite (465)
-    MAIL_FROM_ADDRESS=noreply@g2c.fr
+    SMTP_HOST=smtp.example.com
+    SMTP_PORT=587          # STARTTLS (défaut)
+    SMTP_USE_TLS=false     # false pour STARTTLS / true pour SSL direct (port 465)
+    SMTP_STARTTLS=true     # true pour STARTTLS (port 587)
+    MAIL_FROM_ADDRESS=noreply@example.com
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -48,19 +48,20 @@ async def _send_smtp(to: str, subject: str, html: str) -> None:
             username=settings.SMTP_USERNAME or None,
             password=settings.SMTP_PASSWORD or None,
             use_tls=settings.SMTP_USE_TLS,
+            start_tls=settings.SMTP_STARTTLS,
         )
         logger.info("E-mail envoyé à %s (sujet : %s)", to, subject)
     except Exception as exc:  # noqa: BLE001
         logger.error("Échec envoi e-mail à %s : %s", to, exc)
 
 
-def send_validation_email_background(
+async def send_validation_email(
     to: str,
     campagne_nom: str,
     magasin_nom: str,
     lignes: list[dict],
 ) -> None:
-    """Planifie l'envoi de l'e-mail de validation dans une tâche asyncio (fire & forget).
+    """Envoie l'e-mail de validation d'inventaire.
 
     Args:
         to: Adresse e-mail du destinataire.
@@ -76,4 +77,4 @@ def send_validation_email_background(
         lignes=lignes,
     )
     subject = f"[G2C Inventaire] Campagne validée : {campagne_nom}"
-    asyncio.create_task(_send_smtp(to, subject, html))
+    await _send_smtp(to, subject, html)

@@ -603,7 +603,7 @@ export default function CampagnesPage() {
                             <th className="px-3 py-2 w-10"></th>
                             {(
                               [
-                                ["code_barre", "Code barre"],
+                                ["code_article", "Code article"],
                                 ["libelle", "Libellé"],
                                 ["quantite_theorique", "Théorique"],
                                 ["quantite_comptee", "Compté"],
@@ -667,7 +667,7 @@ export default function CampagnesPage() {
                                       </span>
                                     )}
                                   </td>
-                                  <td className="px-3 py-2 font-mono">{lg.code_barre}</td>
+                                  <td className="px-3 py-2 font-mono">{lg.code_article}</td>
                                   <td
                                     className="px-3 py-2 max-w-[200px] truncate"
                                     title={lg.libelle}
