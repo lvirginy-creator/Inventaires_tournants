@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_session
 from app.core.database import get_db
@@ -25,7 +26,9 @@ async def get_campagne_active(
         HTTPException 404: aucune campagne active pour ce magasin.
     """
     result = await db.execute(
-        select(Campagne).where(
+        select(Campagne)
+        .options(selectinload(Campagne.lignes))
+        .where(
             Campagne.magasin_id == session.magasin_id,
             Campagne.statut == StatutCampagne.en_cours,
         )
