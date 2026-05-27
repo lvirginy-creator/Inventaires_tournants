@@ -16,6 +16,7 @@ export default function CountPage() {
   const [codeBarre, setCodeBarre] = useState("");
   const [codeArticle, setCodeArticle] = useState("");
   const [article, setArticle] = useState<ArticleLocal | null>(null);
+  const [articleHorsCampagne, setArticleHorsCampagne] = useState(false);
   const [quantite, setQuantite] = useState("");
   const [error, setError] = useState("");
   const [lastSaved, setLastSaved] = useState<{ libelle: string; quantite: number } | null>(null);
@@ -33,11 +34,13 @@ export default function CountPage() {
     if (state === "confirm") quantiteRef.current?.focus();
   }, [state]);
 
-  const findAndConfirm = (found: ArticleLocal | undefined) => {
+  const findAndConfirm = (found: ArticleLocal | undefined, currentCampagne: CampagneLocal | null) => {
     if (!found) return false;
     setArticle(found);
     setState("confirm");
     setError("");
+    const dansLaCampagne = currentCampagne?.lignes.some((l) => l.article_id === found.id) ?? false;
+    setArticleHorsCampagne(!dansLaCampagne);
     return true;
   };
 
@@ -47,7 +50,7 @@ export default function CountPage() {
     if (!code) return;
 
     const found = await getArticleByCodeBarre(code);
-    if (!findAndConfirm(found)) {
+    if (!findAndConfirm(found, campagne)) {
       setError(`Code barre "${code}" introuvable`);
       setCodeBarre("");
       barcodeRef.current?.focus();
@@ -60,7 +63,7 @@ export default function CountPage() {
     if (!code) return;
 
     const found = await getArticleByCodeArticle(code);
-    if (!findAndConfirm(found)) {
+    if (!findAndConfirm(found, campagne)) {
       setError(`Code article "${code}" introuvable`);
       setCodeArticle("");
       codeArticleRef.current?.focus();
@@ -96,6 +99,7 @@ export default function CountPage() {
       setCodeArticle("");
       setQuantite("");
       setArticle(null);
+      setArticleHorsCampagne(false);
       setState("scan");
       barcodeRef.current?.focus();
     }, 1500);
@@ -203,8 +207,13 @@ export default function CountPage() {
 
         {/* Article trouvé + saisie quantité */}
         {(state === "confirm" || state === "saved") && article && (
-          <div className="bg-blue-900/50 border border-blue-500 rounded-2xl p-5">
-            <p className="text-xs text-blue-300 uppercase font-semibold mb-1">Article trouvé</p>
+          <div className={`rounded-2xl p-5 border ${articleHorsCampagne ? "bg-orange-900/50 border-orange-500" : "bg-blue-900/50 border-blue-500"}`}>
+            {articleHorsCampagne && (
+              <p className="text-xs text-orange-300 font-bold mb-2">
+                ⚠ Article hors campagne — sera compté mais n'apparaîtra pas dans le rapport
+              </p>
+            )}
+            <p className={`text-xs uppercase font-semibold mb-1 ${articleHorsCampagne ? "text-orange-300" : "text-blue-300"}`}>Article trouvé</p>
             <p className="text-xl font-bold">{article.libelle}</p>
             <p className="text-sm text-gray-400 font-mono mt-1">
               {article.code_article}{article.code_barre ? ` · ${article.code_barre}` : ""}

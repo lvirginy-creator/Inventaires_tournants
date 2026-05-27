@@ -8,7 +8,7 @@ from app.models.campagne import StatutCampagne
 
 class RapportLigne(BaseModel):
     article_id: uuid.UUID
-    code_barre: str
+    code_barre: str | None
     code_article: str
     libelle: str
     unite: str | None
@@ -17,6 +17,14 @@ class RapportLigne(BaseModel):
     # None si aucune quantite_theorique renseignée
     ecart: Decimal | None
     ecart_pct: float | None  # None si qt_theo absente ou == 0
+
+
+class ComptageHorsCampagne(BaseModel):
+    article_id: uuid.UUID
+    code_barre: str | None
+    code_article: str
+    libelle: str
+    quantite_comptee: Decimal
 
 
 class CampagneRapport(BaseModel):
@@ -31,3 +39,5 @@ class CampagneRapport(BaseModel):
     nb_articles_en_ecart: int  # |écart| != 0 (et théorique renseigné)
     # ── Détail par article ────────────────────────────────────────────────────
     lignes: list[RapportLigne]
+    # ── Articles comptés hors campagne (non prévus dans les lignes) ───────────
+    hors_campagne: list[ComptageHorsCampagne] = []

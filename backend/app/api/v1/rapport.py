@@ -23,7 +23,7 @@ from app.models.article import Article
 from app.models.campagne import Campagne, LigneCampagne, StatutCampagne
 from app.models.comptage import Comptage
 from app.models.utilisateur import Utilisateur
-from app.schemas.rapport import CampagneRapport, RapportLigne
+from app.schemas.rapport import CampagneRapport, ComptageHorsCampagne, RapportLigne
 
 router = APIRouter(prefix="/campagnes", tags=["rapport"])
 
@@ -110,6 +110,35 @@ async def _build_rapport(campagne: Campagne, db: AsyncSession) -> CampagneRappor
     nb_ok = sum(1 for lg in lignes if lg.ecart is not None and lg.ecart == 0)
     nb_ecart = sum(1 for lg in lignes if lg.ecart is not None and lg.ecart != 0)
 
+    # ── Articles comptés hors campagne ───────────────────────────────────────
+    article_ids_campagne = {lg.article_id for lg in lignes}
+    hors_stmt = (
+        select(
+            Comptage.article_id,
+            Article.code_barre,
+            Article.code_article,
+            Article.libelle,
+            func.sum(Comptage.quantite).label("quantite_comptee"),
+        )
+        .join(Article, Article.id == Comptage.article_id)
+        .where(
+            Comptage.campagne_id == campagne.id,
+            Comptage.article_id.not_in(article_ids_campagne) if article_ids_campagne else True,
+        )
+        .group_by(Comptage.article_id, Article.code_barre, Article.code_article, Article.libelle)
+    )
+    hors_rows = (await db.execute(hors_stmt)).all()
+    hors_campagne = [
+        ComptageHorsCampagne(
+            article_id=r.article_id,
+            code_barre=r.code_barre,
+            code_article=r.code_article,
+            libelle=r.libelle,
+            quantite_comptee=Decimal(str(r.quantite_comptee)),
+        )
+        for r in hors_rows
+    ]
+
     return CampagneRapport(
         campagne_id=campagne.id,
         campagne_nom=campagne.nom,
@@ -120,6 +149,7 @@ async def _build_rapport(campagne: Campagne, db: AsyncSession) -> CampagneRappor
         nb_articles_ok=nb_ok,
         nb_articles_en_ecart=nb_ecart,
         lignes=lignes,
+        hors_campagne=hors_campagne,
     )
 
 

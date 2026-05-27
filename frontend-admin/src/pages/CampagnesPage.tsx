@@ -803,6 +803,35 @@ export default function CampagnesPage() {
                     </div>
                   </>
                 ) : null}
+
+                {/* ── Articles hors campagne ──────────────────────────────── */}
+                {rapport && rapport.hors_campagne.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="text-sm font-semibold text-orange-700 mb-2">
+                      ⚠ Articles comptés hors campagne ({rapport.hors_campagne.length})
+                    </h3>
+                    <div className="overflow-hidden rounded-lg border border-orange-200">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-orange-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium text-orange-700">Code article</th>
+                            <th className="px-3 py-2 text-left font-medium text-orange-700">Libellé</th>
+                            <th className="px-3 py-2 text-right font-medium text-orange-700">Qté comptée</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-orange-100">
+                          {rapport.hors_campagne.map((hc) => (
+                            <tr key={hc.article_id} className="bg-orange-50/30">
+                              <td className="px-3 py-2 font-mono text-orange-800">{hc.code_article}</td>
+                              <td className="px-3 py-2 text-gray-700">{hc.libelle}</td>
+                              <td className="px-3 py-2 text-right font-medium">{hc.quantite_comptee}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
