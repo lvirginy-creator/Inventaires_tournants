@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 class ArticleCreate(BaseModel):
     societe_id: uuid.UUID
-    code_barre: str = Field(..., max_length=50)
+    code_barre: str | None = Field(None, max_length=50)
     code_article: str = Field(..., max_length=50)
     libelle: str = Field(..., max_length=255)
     unite: str | None = Field(None, max_length=20)
@@ -24,7 +24,7 @@ class ArticleRead(BaseModel):
 
     id: uuid.UUID
     societe_id: uuid.UUID
-    code_barre: str
+    code_barre: str | None
     code_article: str
     libelle: str
     unite: str | None

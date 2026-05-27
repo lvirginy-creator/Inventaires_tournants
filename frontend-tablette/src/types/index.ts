@@ -1,6 +1,6 @@
 export interface ArticleLocal {
   id: string;
-  code_barre: string;
+  code_barre: string | null;
   code_article: string;
   libelle: string;
   unite: string | null;

@@ -16,7 +16,7 @@ class Article(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     societe_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("societes.id"), nullable=False)
-    code_barre: Mapped[str] = mapped_column(String(50), nullable=False)
+    code_barre: Mapped[str | None] = mapped_column(String(50), nullable=True)
     code_article: Mapped[str] = mapped_column(String(50), nullable=False)
     libelle: Mapped[str] = mapped_column(String(255), nullable=False)
     unite: Mapped[str | None] = mapped_column(String(20), nullable=True)

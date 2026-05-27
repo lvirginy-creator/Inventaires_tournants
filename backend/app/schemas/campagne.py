@@ -13,7 +13,7 @@ class ArticleResume(BaseModel):
     model_config = {"from_attributes": True}
 
     id: uuid.UUID
-    code_barre: str
+    code_barre: str | None
     code_article: str
     libelle: str
     unite: str | None

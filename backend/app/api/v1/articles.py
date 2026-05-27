@@ -19,7 +19,7 @@ from app.schemas.article import (
 
 router = APIRouter(prefix="/articles", tags=["articles"])
 
-REQUIRED_COLUMNS = {"code_barre", "code_article", "libelle"}
+REQUIRED_COLUMNS = {"code_article", "libelle"}
 
 
 # ── Parseurs de fichier ─────────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ async def list_articles(
         stmt = stmt.where(
             Article.libelle.ilike(like)
             | Article.code_article.ilike(like)
-            | Article.code_barre.ilike(like)
+            | Article.code_barre.ilike(like)  # safe: ilike on nullable returns false for NULL
         )
     stmt = stmt.order_by(Article.libelle).offset(skip).limit(limit)
     result = await db.execute(stmt)
@@ -163,24 +163,32 @@ async def import_articles(
     errors: list[str] = []
 
     for i, row in enumerate(rows, start=2):
-        code_barre = row.get("code_barre", "").strip()
+        code_barre = row.get("code_barre", "").strip() or None
         code_article = row.get("code_article", "").strip()
         libelle = row.get("libelle", "").strip()
         unite = row.get("unite", "").strip() or None
 
-        if not code_barre or not code_article or not libelle:
-            errors.append(
-                f"Ligne {i} : champs obligatoires manquants (code_barre, code_article, libelle)"
-            )
+        if not code_article or not libelle:
+            errors.append(f"Ligne {i} : champs obligatoires manquants (code_article, libelle)")
             continue
 
-        result = await db.execute(
-            select(Article).where(
-                Article.societe_id == societe_id,
-                Article.code_barre == code_barre,
+        # Lookup : par code_barre si présent, sinon par (societe_id, code_article) sans code_barre
+        if code_barre:
+            lookup = await db.execute(
+                select(Article).where(
+                    Article.societe_id == societe_id,
+                    Article.code_barre == code_barre,
+                )
             )
-        )
-        existing_art = result.scalar_one_or_none()
+        else:
+            lookup = await db.execute(
+                select(Article).where(
+                    Article.societe_id == societe_id,
+                    Article.code_article == code_article,
+                    Article.code_barre.is_(None),
+                )
+            )
+        existing_art = lookup.scalar_one_or_none()
 
         if existing_art:
             existing_art.code_article = code_article

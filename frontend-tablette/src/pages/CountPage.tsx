@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
-import { getCampagneActive, getArticleByCodeBarre, saveComptage, getPendingComptages } from "@/db/schema";
+import { getCampagneActive, getArticleByCodeBarre, getArticleByCodeArticle, saveComptage, getPendingComptages } from "@/db/schema";
 import { useSyncStore } from "@/store/sync";
 import type { ArticleLocal, CampagneLocal } from "@/types";
 
@@ -37,9 +37,10 @@ export default function CountPage() {
     const code = codeBarre.trim();
     if (!code) return;
 
-    const found = await getArticleByCodeBarre(code);
+    // Essayer code barre d'abord, puis code article
+    const found = (await getArticleByCodeBarre(code)) ?? (await getArticleByCodeArticle(code));
     if (!found) {
-      setError(`Code barre "${code}" introuvable dans le catalogue local`);
+      setError(`"${code}" introuvable (code barre ou code article)`);
       setCodeBarre("");
       barcodeRef.current?.focus();
       return;
@@ -124,7 +125,7 @@ export default function CountPage() {
         {/* Zone scan */}
         <div className="bg-gray-800 rounded-2xl p-5">
           <label className="block text-xs text-gray-400 uppercase font-semibold mb-3 tracking-wide">
-            Code barre
+            Code barre ou code article
           </label>
           <input
             ref={barcodeRef}
@@ -132,7 +133,7 @@ export default function CountPage() {
             value={codeBarre}
             onChange={(e) => setCodeBarre(e.target.value)}
             onKeyDown={(e) => handleKeyDown(e, handleBarcodeSubmit)}
-            placeholder="Scanner ou saisir le code barre…"
+            placeholder="Scanner ou saisir code barre / code article…"
             className="w-full bg-gray-700 text-white text-xl font-mono px-4 py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
             autoComplete="off"
             inputMode="none"
@@ -162,7 +163,7 @@ export default function CountPage() {
             <p className="text-xs text-blue-300 uppercase font-semibold mb-1">Article trouvé</p>
             <p className="text-xl font-bold">{article.libelle}</p>
             <p className="text-sm text-gray-400 font-mono mt-1">
-              {article.code_article} · {article.code_barre}
+              {article.code_article}{article.code_barre ? ` · ${article.code_barre}` : ""}
             </p>
             {article.unite && (
               <p className="text-sm text-blue-300 mt-1">Unité : {article.unite}</p>
