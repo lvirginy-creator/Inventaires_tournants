@@ -20,7 +20,7 @@ dependencies = [
 
     # Auth + sécurité
     "python-jose[cryptography]>=3.3",
-    "passlib[bcrypt]>=1.7",
+    "bcrypt>=4.0",
     "slowapi>=0.1.9",
 
     # Config
