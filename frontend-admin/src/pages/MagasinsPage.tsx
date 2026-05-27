@@ -2,14 +2,29 @@ import { FormEvent, useEffect, useState } from "react";
 import api from "@/api/client";
 import type { Magasin, Societe } from "@/types";
 
+type EditForm = {
+  nom: string;
+  email_responsable: string;
+  password_operateur: string;
+  password_responsable: string;
+};
+
 export default function MagasinsPage() {
   const [magasins, setMagasins] = useState<Magasin[]>([]);
   const [societes, setSocietes] = useState<Societe[]>([]);
-  const [showForm, setShowForm] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({
+  const [editError, setEditError] = useState("");
+  const [createForm, setCreateForm] = useState({
     societe_id: "",
     code: "",
+    nom: "",
+    email_responsable: "",
+    password_operateur: "",
+    password_responsable: "",
+  });
+  const [editForm, setEditForm] = useState<EditForm>({
     nom: "",
     email_responsable: "",
     password_operateur: "",
@@ -34,10 +49,10 @@ export default function MagasinsPage() {
     setError("");
     try {
       await api.post("/magasins", {
-        ...form,
-        email_responsable: form.email_responsable || null,
+        ...createForm,
+        email_responsable: createForm.email_responsable || null,
       });
-      setForm({
+      setCreateForm({
         societe_id: "",
         code: "",
         nom: "",
@@ -45,11 +60,42 @@ export default function MagasinsPage() {
         password_operateur: "",
         password_responsable: "",
       });
-      setShowForm(false);
+      setShowCreate(false);
       load();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setError(msg ?? "Erreur lors de la création");
+    }
+  };
+
+  const startEdit = (m: Magasin) => {
+    setEditingId(m.id);
+    setEditForm({
+      nom: m.nom,
+      email_responsable: m.email_responsable ?? "",
+      password_operateur: "",
+      password_responsable: "",
+    });
+    setEditError("");
+  };
+
+  const handleEdit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!editingId) return;
+    setEditError("");
+    try {
+      const payload: Record<string, unknown> = {
+        nom: editForm.nom,
+        email_responsable: editForm.email_responsable || null,
+      };
+      if (editForm.password_operateur) payload.password_operateur = editForm.password_operateur;
+      if (editForm.password_responsable) payload.password_responsable = editForm.password_responsable;
+      await api.patch(`/magasins/${editingId}`, payload);
+      setEditingId(null);
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setEditError(msg ?? "Erreur lors de la mise à jour");
     }
   };
 
@@ -72,14 +118,15 @@ export default function MagasinsPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Magasins</h1>
         <button
-          onClick={() => setShowForm((v) => !v)}
+          onClick={() => { setShowCreate((v) => !v); setError(""); }}
           className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
         >
-          {showForm ? "Annuler" : "+ Nouveau magasin"}
+          {showCreate ? "Annuler" : "+ Nouveau magasin"}
         </button>
       </div>
 
-      {showForm && (
+      {/* ── Formulaire de création ─────────────────────────────────────────── */}
+      {showCreate && (
         <form
           onSubmit={handleCreate}
           className="bg-white rounded-xl shadow p-6 mb-6 space-y-4 max-w-lg"
@@ -89,8 +136,8 @@ export default function MagasinsPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Société</label>
               <select
-                value={form.societe_id}
-                onChange={(e) => setForm({ ...form, societe_id: e.target.value })}
+                value={createForm.societe_id}
+                onChange={(e) => setCreateForm({ ...createForm, societe_id: e.target.value })}
                 required
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
               >
@@ -105,8 +152,8 @@ export default function MagasinsPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Code</label>
               <input
-                value={form.code}
-                onChange={(e) => setForm({ ...form, code: e.target.value })}
+                value={createForm.code}
+                onChange={(e) => setCreateForm({ ...createForm, code: e.target.value })}
                 required
                 maxLength={20}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
@@ -116,8 +163,8 @@ export default function MagasinsPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
             <input
-              value={form.nom}
-              onChange={(e) => setForm({ ...form, nom: e.target.value })}
+              value={createForm.nom}
+              onChange={(e) => setCreateForm({ ...createForm, nom: e.target.value })}
               required
               maxLength={200}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
@@ -129,8 +176,8 @@ export default function MagasinsPage() {
             </label>
             <input
               type="email"
-              value={form.email_responsable}
-              onChange={(e) => setForm({ ...form, email_responsable: e.target.value })}
+              value={createForm.email_responsable}
+              onChange={(e) => setCreateForm({ ...createForm, email_responsable: e.target.value })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
             />
           </div>
@@ -141,8 +188,8 @@ export default function MagasinsPage() {
               </label>
               <input
                 type="password"
-                value={form.password_operateur}
-                onChange={(e) => setForm({ ...form, password_operateur: e.target.value })}
+                value={createForm.password_operateur}
+                onChange={(e) => setCreateForm({ ...createForm, password_operateur: e.target.value })}
                 required
                 minLength={6}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
@@ -154,8 +201,8 @@ export default function MagasinsPage() {
               </label>
               <input
                 type="password"
-                value={form.password_responsable}
-                onChange={(e) => setForm({ ...form, password_responsable: e.target.value })}
+                value={createForm.password_responsable}
+                onChange={(e) => setCreateForm({ ...createForm, password_responsable: e.target.value })}
                 required
                 minLength={6}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
@@ -172,6 +219,7 @@ export default function MagasinsPage() {
         </form>
       )}
 
+      {/* ── Liste des magasins ────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl shadow overflow-hidden">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
@@ -179,41 +227,123 @@ export default function MagasinsPage() {
               <th className="px-4 py-3 text-left">Code</th>
               <th className="px-4 py-3 text-left">Nom</th>
               <th className="px-4 py-3 text-left">Société</th>
+              <th className="px-4 py-3 text-left">Email responsable</th>
               <th className="px-4 py-3 text-left">Statut</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {magasins.map((m) => (
-              <tr key={m.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-mono text-gray-700">{m.code}</td>
-                <td className="px-4 py-3 text-gray-900">{m.nom}</td>
-                <td className="px-4 py-3 text-gray-500">{societeNom(m.societe_id)}</td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => toggleActif(m)}
-                    className={`text-xs font-medium px-2 py-1 rounded-full ${
-                      m.actif
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
-                  >
-                    {m.actif ? "Actif" : "Inactif"}
-                  </button>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => handleDelete(m.id)}
-                    className="text-xs text-red-500 hover:text-red-700"
-                  >
-                    Supprimer
-                  </button>
-                </td>
-              </tr>
+              <>
+                <tr key={m.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-mono text-gray-700">{m.code}</td>
+                  <td className="px-4 py-3 text-gray-900 font-medium">{m.nom}</td>
+                  <td className="px-4 py-3 text-gray-500">{societeNom(m.societe_id)}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">
+                    {m.email_responsable ?? <span className="italic text-gray-300">—</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => toggleActif(m)}
+                      className={`text-xs font-medium px-2 py-1 rounded-full ${
+                        m.actif
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {m.actif ? "Actif" : "Inactif"}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-right space-x-3">
+                    <button
+                      onClick={() => editingId === m.id ? setEditingId(null) : startEdit(m)}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      {editingId === m.id ? "Annuler" : "Modifier"}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(m.id)}
+                      className="text-xs text-red-500 hover:text-red-700"
+                    >
+                      Supprimer
+                    </button>
+                  </td>
+                </tr>
+
+                {/* ── Formulaire d'édition inline ──────────────────────────── */}
+                {editingId === m.id && (
+                  <tr key={`edit-${m.id}`}>
+                    <td colSpan={6} className="px-6 py-4 bg-blue-50 border-b border-blue-100">
+                      <form onSubmit={handleEdit} className="space-y-3 max-w-xl">
+                        <p className="text-sm font-semibold text-blue-800">Modifier {m.nom}</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Nom</label>
+                            <input
+                              value={editForm.nom}
+                              onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
+                              required
+                              maxLength={200}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Email responsable
+                            </label>
+                            <input
+                              type="email"
+                              value={editForm.email_responsable}
+                              onChange={(e) => setEditForm({ ...editForm, email_responsable: e.target.value })}
+                              placeholder="email@exemple.fr"
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Nouveau mdp opérateur <span className="text-gray-400">(laisser vide = inchangé)</span>
+                            </label>
+                            <input
+                              type="password"
+                              value={editForm.password_operateur}
+                              onChange={(e) => setEditForm({ ...editForm, password_operateur: e.target.value })}
+                              minLength={editForm.password_operateur ? 6 : undefined}
+                              placeholder="••••••"
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Nouveau mdp responsable <span className="text-gray-400">(laisser vide = inchangé)</span>
+                            </label>
+                            <input
+                              type="password"
+                              value={editForm.password_responsable}
+                              onChange={(e) => setEditForm({ ...editForm, password_responsable: e.target.value })}
+                              minLength={editForm.password_responsable ? 6 : undefined}
+                              placeholder="••••••"
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                            />
+                          </div>
+                        </div>
+                        {editError && <p className="text-sm text-red-600">{editError}</p>}
+                        <button
+                          type="submit"
+                          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg"
+                        >
+                          Enregistrer
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                )}
+              </>
             ))}
             {magasins.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
                   Aucun magasin
                 </td>
               </tr>
