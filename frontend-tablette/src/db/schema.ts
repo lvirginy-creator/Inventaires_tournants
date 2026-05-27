@@ -46,7 +46,7 @@ export async function getArticleByCodeArticle(
 }
 
 export async function getPendingComptages(): Promise<ComptageLocal[]> {
-  return db.comptages.where("synced").equals(0).toArray();
+  return db.comptages.filter((c) => !c.synced).toArray();
 }
 
 export async function markComptagesSynced(clientUuids: string[]): Promise<void> {
