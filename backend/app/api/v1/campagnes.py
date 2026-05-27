@@ -43,7 +43,7 @@ _STATUTS_EDITABLES = {StatutCampagne.brouillon}
 async def _get_campagne_or_404(campagne_id: uuid.UUID, db: AsyncSession) -> Campagne:
     result = await db.execute(
         select(Campagne)
-        .options(selectinload(Campagne.lignes))
+        .options(selectinload(Campagne.lignes).selectinload(LigneCampagne.article))
         .where(Campagne.id == campagne_id)
     )
     campagne = result.scalar_one_or_none()
@@ -145,7 +145,7 @@ async def create_campagne(
     await db.commit()
     result = await db.execute(
         select(Campagne)
-        .options(selectinload(Campagne.lignes))
+        .options(selectinload(Campagne.lignes).selectinload(LigneCampagne.article))
         .where(Campagne.id == campagne.id)
     )
     campagne = result.scalar_one()
