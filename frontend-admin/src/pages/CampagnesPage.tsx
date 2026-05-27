@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import api from "@/api/client";
 import type {
   Article,
@@ -55,9 +55,10 @@ export default function CampagnesPage() {
   const [createNom, setCreateNom] = useState("");
   const [createError, setCreateError] = useState("");
 
-  // Ajout article dans détail
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [addArticleId, setAddArticleId] = useState("");
+  // Ajout article dans détail — recherche par code article / libellé
+  const [articleSearch, setArticleSearch] = useState("");
+  const [articleSearchResults, setArticleSearchResults] = useState<Article[]>([]);
+  const [articleSearchLoading, setArticleSearchLoading] = useState(false);
   const [addQt, setAddQt] = useState("");
   const [addError, setAddError] = useState("");
 
@@ -120,15 +121,10 @@ export default function CampagnesPage() {
     setRapport(null);
     setComptagesData(null);
     setExpandedArticle(null);
-    setAddArticleId("");
+    setArticleSearch("");
+    setArticleSearchResults([]);
     setAddQt("");
     setAddError("");
-    // Charger les articles de la société du magasin
-    const mag = magasins.find((m) => m.id === c.magasin_id);
-    if (mag) {
-      const ra = await api.get<Article[]>(`/articles?societe_id=${mag.societe_id}&actif=true&limit=500`);
-      setArticles(ra.data);
-    }
   };
 
   const refreshSelected = async () => {
@@ -137,6 +133,42 @@ export default function CampagnesPage() {
     setSelected(r.data);
     fetchCampagnes();
   };
+
+  // ── Recherche article (debounce 300ms) ──────────────────────────────────────
+
+  useEffect(() => {
+    if (!articleSearch.trim() || !selected) {
+      setArticleSearchResults([]);
+      return;
+    }
+    const mag = magasins.find((m) => m.id === selected.magasin_id);
+    if (!mag) return;
+    setArticleSearchLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const r = await api.get<Article[]>(
+          `/articles?q=${encodeURIComponent(articleSearch)}&societe_id=${mag.societe_id}&actif=true&limit=100`
+        );
+        setArticleSearchResults(r.data);
+      } finally {
+        setArticleSearchLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [articleSearch, selected?.id]);
+
+  // Grouper les résultats par code_article
+  const groupedArticleResults = useMemo(() => {
+    const map = new Map<string, { code_article: string; libelle: string; articles: Article[] }>();
+    for (const a of articleSearchResults) {
+      if (!map.has(a.code_article)) {
+        map.set(a.code_article, { code_article: a.code_article, libelle: a.libelle, articles: [] });
+      }
+      map.get(a.code_article)!.articles.push(a);
+    }
+    return Array.from(map.values());
+  }, [articleSearchResults]);
 
   // ── Actions ─────────────────────────────────────────────────────────────────
 
@@ -187,22 +219,31 @@ export default function CampagnesPage() {
     fetchCampagnes();
   };
 
-  const handleAddArticle = async () => {
-    if (!selected || !addArticleId) return;
+  const handleAddByCodeArticle = async (group: { articles: Article[] }) => {
+    if (!selected) return;
     setAddError("");
-    try {
-      await api.post(`/campagnes/${selected.id}/articles`, {
-        article_id: addArticleId,
-        quantite_theorique: addQt ? parseFloat(addQt) : null,
-      });
-      setAddArticleId("");
+    const qt = addQt ? parseFloat(addQt) : null;
+    const toAdd = group.articles.filter(
+      (a) => !selected.lignes.some((l) => l.article_id === a.id)
+    );
+    const errors: string[] = [];
+    for (const article of toAdd) {
+      try {
+        await api.post(`/campagnes/${selected.id}/articles`, {
+          article_id: article.id,
+          quantite_theorique: qt,
+        });
+      } catch (err: unknown) {
+        const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        errors.push(detail ?? `Erreur ajout ${article.code_barre}`);
+      }
+    }
+    if (errors.length > 0) setAddError(errors.join(" | "));
+    if (toAdd.length > errors.length) {
+      setArticleSearch("");
+      setArticleSearchResults([]);
       setAddQt("");
       refreshSelected();
-    } catch (err: unknown) {
-      setAddError(
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-          "Erreur ajout"
-      );
     }
   };
 
@@ -750,42 +791,77 @@ export default function CampagnesPage() {
             {/* ── Vue Articles ─────────────────────────────────────────────── */}
             {/* Actions articles (brouillon) */}
             {detailTab === "articles" && editable && (
-              <div className="flex flex-wrap gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
-                <select
-                  value={addArticleId}
-                  onChange={(e) => setAddArticleId(e.target.value)}
-                  className="border rounded px-3 py-1.5 text-sm flex-1 min-w-[200px]"
-                >
-                  <option value="">Choisir un article…</option>
-                  {articles
-                    .filter((a) => !selected.lignes.some((l) => l.article_id === a.id))
-                    .map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.code_barre} — {a.libelle}
-                      </option>
-                    ))}
-                </select>
-                <input
-                  type="number"
-                  placeholder="Qté théorique"
-                  value={addQt}
-                  onChange={(e) => setAddQt(e.target.value)}
-                  className="border rounded px-3 py-1.5 text-sm w-32"
-                />
-                <button
-                  onClick={handleAddArticle}
-                  disabled={!addArticleId}
-                  className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-                >
-                  Ajouter
-                </button>
-                <button
-                  onClick={() => { setShowImport(true); setImportResult(null); setImportError(""); }}
-                  className="px-3 py-1.5 text-sm border rounded hover:bg-gray-100"
-                >
-                  Importer CSV / XLSX
-                </button>
-                {addError && <p className="w-full text-xs text-red-600">{addError}</p>}
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg space-y-2">
+                <div className="flex gap-2 flex-wrap">
+                  <div className="flex-1 min-w-[220px] relative">
+                    <input
+                      type="text"
+                      placeholder="Rechercher par code article ou libellé…"
+                      value={articleSearch}
+                      onChange={(e) => setArticleSearch(e.target.value)}
+                      className="w-full border rounded px-3 py-1.5 text-sm"
+                      autoComplete="off"
+                    />
+                    {/* Dropdown résultats */}
+                    {articleSearch.trim() && (
+                      <div className="absolute z-10 left-0 right-0 bg-white border rounded shadow-lg max-h-56 overflow-y-auto mt-1">
+                        {articleSearchLoading && (
+                          <p className="text-xs text-gray-400 px-3 py-2">Recherche…</p>
+                        )}
+                        {!articleSearchLoading && groupedArticleResults.length === 0 && (
+                          <p className="text-xs text-gray-400 px-3 py-2">Aucun résultat</p>
+                        )}
+                        {groupedArticleResults.map((group) => {
+                          const alreadyAll = group.articles.every((a) =>
+                            selected.lignes.some((l) => l.article_id === a.id)
+                          );
+                          return (
+                            <div
+                              key={group.code_article}
+                              className="flex items-center justify-between px-3 py-2 border-b last:border-0 hover:bg-gray-50"
+                            >
+                              <div className="min-w-0 mr-2">
+                                <span className="text-xs font-mono text-blue-700 font-medium">
+                                  {group.code_article}
+                                </span>
+                                <span className="mx-1 text-gray-300">—</span>
+                                <span className="text-sm text-gray-800">{group.libelle}</span>
+                                {group.articles.length > 1 && (
+                                  <span className="ml-2 text-xs text-gray-400">
+                                    {group.articles.length} codes barres
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => handleAddByCodeArticle(group)}
+                                disabled={alreadyAll}
+                                className="flex-shrink-0 text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-40 disabled:cursor-default"
+                              >
+                                {alreadyAll ? "Déjà présent" : "Ajouter"}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    type="number"
+                    placeholder="Qté théorique"
+                    value={addQt}
+                    onChange={(e) => setAddQt(e.target.value)}
+                    className="border rounded px-3 py-1.5 text-sm w-32"
+                    min="0"
+                    step="any"
+                  />
+                  <button
+                    onClick={() => { setShowImport(true); setImportResult(null); setImportError(""); }}
+                    className="px-3 py-1.5 text-sm border rounded hover:bg-gray-100"
+                  >
+                    Importer CSV / XLSX
+                  </button>
+                </div>
+                {addError && <p className="text-xs text-red-600">{addError}</p>}
               </div>
             )}
 
