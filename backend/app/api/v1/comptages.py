@@ -48,6 +48,20 @@ async def _check_campagne_active(
         )
 
 
+async def _is_campagne_active(
+    campagne_id: uuid.UUID, magasin_id: uuid.UUID, db: AsyncSession
+) -> bool:
+    """Retourne True si la campagne est en cours pour ce magasin (sans lever d'exception)."""
+    result = await db.execute(
+        select(Campagne).where(
+            Campagne.id == campagne_id,
+            Campagne.magasin_id == magasin_id,
+            Campagne.statut == StatutCampagne.en_cours,
+        )
+    )
+    return result.scalar_one_or_none() is not None
+
+
 @router.post("", response_model=ComptageRead, status_code=status.HTTP_201_CREATED)
 async def submit_comptage(
     payload: ComptageCreate,
@@ -112,12 +126,22 @@ async def submit_batch(
 
     created = 0
     duplicates = len(existing_uuids)
+    skipped = 0
+
+    # Cache des campagnes vérifiées pour éviter une requête par comptage
+    campagne_cache: dict[uuid.UUID, bool] = {}
 
     for item in payload.comptages:
         if item.client_uuid in existing_uuids:
             continue
 
-        await _check_campagne_active(item.campagne_id, session.magasin_id, db)
+        if item.campagne_id not in campagne_cache:
+            campagne_cache[item.campagne_id] = await _is_campagne_active(
+                item.campagne_id, session.magasin_id, db
+            )
+        if not campagne_cache[item.campagne_id]:
+            skipped += 1
+            continue
 
         counted_at = item.counted_at
         if counted_at.tzinfo is None:
