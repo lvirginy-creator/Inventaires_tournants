@@ -5,6 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_admin, require_admin_role
 from app.core.database import get_db, now_utc
@@ -40,7 +41,11 @@ _STATUTS_EDITABLES = {StatutCampagne.brouillon}
 
 
 async def _get_campagne_or_404(campagne_id: uuid.UUID, db: AsyncSession) -> Campagne:
-    result = await db.execute(select(Campagne).where(Campagne.id == campagne_id))
+    result = await db.execute(
+        select(Campagne)
+        .options(selectinload(Campagne.lignes))
+        .where(Campagne.id == campagne_id)
+    )
     campagne = result.scalar_one_or_none()
     if not campagne:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campagne introuvable")
@@ -138,9 +143,11 @@ async def create_campagne(
     )
     db.add(campagne)
     await db.commit()
-    await db.refresh(campagne)
-    # Recharger avec eager load des lignes
-    result = await db.execute(select(Campagne).where(Campagne.id == campagne.id))
+    result = await db.execute(
+        select(Campagne)
+        .options(selectinload(Campagne.lignes))
+        .where(Campagne.id == campagne.id)
+    )
     campagne = result.scalar_one()
     return CampagneRead.model_validate(campagne)
 
@@ -168,7 +175,6 @@ async def update_campagne(
         campagne.nom = payload.nom
     campagne.updated_at = now_utc()
     await db.commit()
-    await db.refresh(campagne)
     return CampagneRead.model_validate(campagne)
 
 
@@ -214,7 +220,6 @@ async def demarrer_campagne(
     campagne.date_debut = now_utc()
     campagne.updated_at = now_utc()
     await db.commit()
-    await db.refresh(campagne)
     return CampagneRead.model_validate(campagne)
 
 
@@ -231,7 +236,6 @@ async def cloturer_campagne(
     campagne.date_fin = now_utc()
     campagne.updated_at = now_utc()
     await db.commit()
-    await db.refresh(campagne)
     return CampagneRead.model_validate(campagne)
 
 
@@ -294,7 +298,6 @@ async def valider_campagne(
     campagne.statut = StatutCampagne.validee
     campagne.updated_at = now_utc()
     await db.commit()
-    await db.refresh(campagne)
 
     # ── E-mail fire & forget (ne bloque pas la réponse) ─────────────────────────
     if magasin.email_responsable:
