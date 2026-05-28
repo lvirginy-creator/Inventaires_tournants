@@ -325,8 +325,10 @@ export default function CampagnesPage() {
     }
   };
 
-  const comptagesParArticle = (articleId: string) =>
-    comptagesData?.articles.find((a) => a.article_id === articleId)?.comptages ?? [];
+  const comptagesParArticle = (articleIds: string[]) =>
+    comptagesData?.articles
+      .filter((a) => articleIds.includes(a.article_id))
+      .flatMap((a) => a.comptages) ?? [];
 
   const canEditComptages =
     selected?.statut === "en_cours" || selected?.statut === "terminee";
@@ -587,10 +589,10 @@ export default function CampagnesPage() {
                                   ? "text-green-700 font-medium"
                                   : "text-red-600 font-semibold";
                             const isExpanded = expandedArticle === lg.article_id;
-                            const artComptages = comptagesParArticle(lg.article_id);
-                            const nbComptages = comptagesData?.articles.find(
-                              (a) => a.article_id === lg.article_id
-                            )?.nb_comptages;
+                            const artComptages = comptagesParArticle(lg.article_ids);
+                            const nbComptages = comptagesData?.articles
+                              .filter((a) => lg.article_ids.includes(a.article_id))
+                              .reduce((sum, a) => sum + a.nb_comptages, 0);
                             return (
                               <Fragment key={lg.article_id}>
                                 <tr className={rowCls}>
