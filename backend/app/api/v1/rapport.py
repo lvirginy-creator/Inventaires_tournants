@@ -126,17 +126,6 @@ async def _build_rapport(campagne: Campagne, db: AsyncSession) -> CampagneRappor
             )
         )
 
-    # Trier par |écart| décroissant (plus grands écarts en premier)
-    lignes.sort(
-        key=lambda x: abs(x.ecart) if x.ecart is not None else Decimal(0),
-        reverse=True,
-    )
-
-    nb_articles = len(lignes)
-    nb_comptes = sum(1 for lg in lignes if lg.quantite_comptee > 0)
-    nb_ok = sum(1 for lg in lignes if lg.ecart is not None and lg.ecart == 0)
-    nb_ecart = sum(1 for lg in lignes if lg.ecart is not None and lg.ecart != 0)
-
     # ── Articles comptés hors campagne ───────────────────────────────────────
     article_ids_campagne = {item["article_id"] for item in intermediate}
     hors_stmt = (
@@ -160,18 +149,57 @@ async def _build_rapport(campagne: Campagne, db: AsyncSession) -> CampagneRappor
     for r in hors_rows:
         hors_groups[r.code_article].append(r)
 
-    hors_campagne = []
+    # ── Fusionner les hors_campagne dont le code_article est déjà dans le rapport
+    # (même produit, barcode différent non enregistré dans la campagne)
+    code_article_idx = {lg.code_article: i for i, lg in enumerate(lignes)}
+    hors_campagne: list[ComptageHorsCampagne] = []
+
     for code_article, hors_group in hors_groups.items():
-        total = sum(Decimal(str(r.quantite_comptee)) for r in hors_group)
-        hors_campagne.append(
-            ComptageHorsCampagne(
-                article_id=hors_group[0].article_id,
-                code_barres=[r.code_barre for r in hors_group if r.code_barre],
-                code_article=code_article,
-                libelle=hors_group[0].libelle,
-                quantite_comptee=total,
+        total_hc = sum(Decimal(str(r.quantite_comptee)) for r in hors_group)
+        idx = code_article_idx.get(code_article)
+        if idx is not None:
+            lg = lignes[idx]
+            new_compte = lg.quantite_comptee + total_hc
+            if lg.quantite_theorique is not None:
+                new_ecart = (new_compte - lg.quantite_theorique).quantize(
+                    Decimal("0.001"), rounding=ROUND_HALF_UP
+                )
+                new_ecart_pct = (
+                    float(new_ecart) / float(lg.quantite_theorique) * 100
+                    if lg.quantite_theorique != 0
+                    else None
+                )
+            else:
+                new_ecart = None
+                new_ecart_pct = None
+            lignes[idx] = lg.model_copy(
+                update={
+                    "quantite_comptee": new_compte,
+                    "ecart": new_ecart,
+                    "ecart_pct": round(new_ecart_pct, 2) if new_ecart_pct is not None else None,
+                }
             )
-        )
+        else:
+            hors_campagne.append(
+                ComptageHorsCampagne(
+                    article_id=hors_group[0].article_id,
+                    code_barres=[r.code_barre for r in hors_group if r.code_barre],
+                    code_article=code_article,
+                    libelle=hors_group[0].libelle,
+                    quantite_comptee=total_hc,
+                )
+            )
+
+    # Trier par |écart| décroissant (plus grands écarts en premier)
+    lignes.sort(
+        key=lambda x: abs(x.ecart) if x.ecart is not None else Decimal(0),
+        reverse=True,
+    )
+
+    nb_articles = len(lignes)
+    nb_comptes = sum(1 for lg in lignes if lg.quantite_comptee > 0)
+    nb_ok = sum(1 for lg in lignes if lg.ecart is not None and lg.ecart == 0)
+    nb_ecart = sum(1 for lg in lignes if lg.ecart is not None and lg.ecart != 0)
 
     return CampagneRapport(
         campagne_id=campagne.id,
