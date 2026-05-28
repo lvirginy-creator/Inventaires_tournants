@@ -150,7 +150,7 @@ export default function DashboardPage() {
   const handleAddComptage = async (codeArticle: string) => {
     if (!campagne) return;
     const qty = parseFloat(addQty[codeArticle] ?? "");
-    if (isNaN(qty) || qty < 0) return;
+    if (isNaN(qty) || qty <= 0) return;
     const ligne = lignesUniques.find((l) => l.article.code_article === codeArticle);
     if (!ligne) return;
 
@@ -163,11 +163,22 @@ export default function DashboardPage() {
       synced: false,
     };
     await saveComptage(comptage);
+
+    // Optimistic update — instant visual feedback without waiting for async DB reload
+    setComptagesMap((prev) => {
+      const next = new Map(prev);
+      next.set(codeArticle, [comptage, ...(prev.get(codeArticle) ?? [])]);
+      return next;
+    });
+    setPendingCount((prev) => prev + 1);
+
     setAddQty((prev) => ({ ...prev, [codeArticle]: "" }));
     setAddedArticle(codeArticle);
     setTimeout(() => setAddedArticle(null), 1000);
-    await loadComptages(campagne);
     setTimeout(() => qtyInputRefs.current[codeArticle]?.focus(), 50);
+
+    // Background reload to reconcile DB state (synced flags, etc.)
+    loadComptages(campagne);
   };
 
   const handleDeleteComptage = async (cpt: ComptageLocal) => {
