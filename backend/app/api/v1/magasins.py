@@ -2,6 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_admin, require_admin_role
@@ -90,12 +91,21 @@ async def update_magasin(
     if not magasin:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Magasin introuvable")
 
+    if payload.societe_id is not None:
+        soc = await db.execute(select(Societe).where(Societe.id == payload.societe_id))
+        if not soc.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Société introuvable")
+        magasin.societe_id = payload.societe_id
     if payload.nom is not None:
         magasin.nom = payload.nom
     if payload.email_responsable is not None:
         magasin.email_responsable = payload.email_responsable
     if payload.actif is not None:
         magasin.actif = payload.actif
+    if payload.password_operateur is not None:
+        magasin.password_operateur_hash = hash_password(payload.password_operateur)
+    if payload.password_responsable is not None:
+        magasin.password_responsable_hash = hash_password(payload.password_responsable)
 
     await db.commit()
     await db.refresh(magasin)
@@ -140,5 +150,12 @@ async def delete_magasin(
     magasin = result.scalar_one_or_none()
     if not magasin:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Magasin introuvable")
-    await db.delete(magasin)
-    await db.commit()
+    try:
+        await db.delete(magasin)
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Impossible de supprimer ce magasin : des tablettes, campagnes ou comptages y sont associés",
+        )

@@ -8,6 +8,7 @@ export default function SocietesPage() {
   const [code, setCode] = useState("");
   const [nom, setNom] = useState("");
   const [error, setError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
 
   const load = () => api.get<Societe[]>("/societes").then((r) => setSocietes(r.data));
 
@@ -36,9 +37,15 @@ export default function SocietesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer cette société ?")) return;
-    await api.delete(`/societes/${id}`);
-    load();
+    if (!confirm("Supprimer cette société ? Cette action est irréversible.")) return;
+    setDeleteError("");
+    try {
+      await api.delete(`/societes/${id}`);
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setDeleteError(msg ?? "Erreur lors de la suppression");
+    }
   };
 
   return (
@@ -87,6 +94,12 @@ export default function SocietesPage() {
             Créer
           </button>
         </form>
+      )}
+
+      {deleteError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {deleteError}
+        </div>
       )}
 
       <div className="bg-white rounded-xl shadow overflow-hidden">

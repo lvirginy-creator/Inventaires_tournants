@@ -2,6 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_admin, require_admin_role
@@ -86,5 +87,12 @@ async def delete_societe(
     societe = result.scalar_one_or_none()
     if not societe:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Société introuvable")
-    await db.delete(societe)
-    await db.commit()
+    try:
+        await db.delete(societe)
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Impossible de supprimer cette société : des magasins y sont associés",
+        )

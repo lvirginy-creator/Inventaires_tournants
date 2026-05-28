@@ -3,6 +3,7 @@ import api from "@/api/client";
 import type { Magasin, Societe } from "@/types";
 
 type EditForm = {
+  societe_id: string;
   nom: string;
   email_responsable: string;
   password_operateur: string;
@@ -25,6 +26,7 @@ export default function MagasinsPage() {
     password_responsable: "",
   });
   const [editForm, setEditForm] = useState<EditForm>({
+    societe_id: "",
     nom: "",
     email_responsable: "",
     password_operateur: "",
@@ -71,6 +73,7 @@ export default function MagasinsPage() {
   const startEdit = (m: Magasin) => {
     setEditingId(m.id);
     setEditForm({
+      societe_id: m.societe_id,
       nom: m.nom,
       email_responsable: m.email_responsable ?? "",
       password_operateur: "",
@@ -85,6 +88,7 @@ export default function MagasinsPage() {
     setEditError("");
     try {
       const payload: Record<string, unknown> = {
+        societe_id: editForm.societe_id || undefined,
         nom: editForm.nom,
         email_responsable: editForm.email_responsable || null,
       };
@@ -104,10 +108,18 @@ export default function MagasinsPage() {
     load();
   };
 
+  const [deleteError, setDeleteError] = useState("");
+
   const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer ce magasin ?")) return;
-    await api.delete(`/magasins/${id}`);
-    load();
+    if (!confirm("Supprimer ce magasin ? Cette action est irréversible.")) return;
+    setDeleteError("");
+    try {
+      await api.delete(`/magasins/${id}`);
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setDeleteError(msg ?? "Erreur lors de la suppression");
+    }
   };
 
   const societeNom = (id: string) =>
@@ -219,6 +231,12 @@ export default function MagasinsPage() {
         </form>
       )}
 
+      {deleteError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {deleteError}
+        </div>
+      )}
+
       {/* ── Liste des magasins ────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl shadow overflow-hidden">
         <table className="min-w-full text-sm">
@@ -278,6 +296,22 @@ export default function MagasinsPage() {
                         <p className="text-sm font-semibold text-blue-800">Modifier {m.nom}</p>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Société</label>
+                            <select
+                              value={editForm.societe_id}
+                              onChange={(e) => setEditForm({ ...editForm, societe_id: e.target.value })}
+                              required
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                            >
+                              <option value="">Choisir…</option>
+                              {societes.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.code} — {s.nom}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">Nom</label>
                             <input
                               value={editForm.nom}
@@ -287,18 +321,18 @@ export default function MagasinsPage() {
                               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
                             />
                           </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
-                              Email responsable
-                            </label>
-                            <input
-                              type="email"
-                              value={editForm.email_responsable}
-                              onChange={(e) => setEditForm({ ...editForm, email_responsable: e.target.value })}
-                              placeholder="email@exemple.fr"
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
-                            />
-                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Email responsable
+                          </label>
+                          <input
+                            type="email"
+                            value={editForm.email_responsable}
+                            onChange={(e) => setEditForm({ ...editForm, email_responsable: e.target.value })}
+                            placeholder="email@exemple.fr"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                          />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>

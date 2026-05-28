@@ -14,9 +14,12 @@ class MagasinCreate(BaseModel):
 
 
 class MagasinUpdate(BaseModel):
+    societe_id: uuid.UUID | None = None
     nom: str | None = Field(default=None, min_length=1, max_length=200)
     email_responsable: EmailStr | None = None
     actif: bool | None = None
+    password_operateur: str | None = Field(default=None, min_length=6)
+    password_responsable: str | None = Field(default=None, min_length=6)
 
 
 class MagasinPasswordReset(BaseModel):
