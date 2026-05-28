@@ -428,10 +428,10 @@ async def import_articles_campagne(
     _: Utilisateur = Depends(require_admin_role),
     db: AsyncSession = Depends(get_db),
 ) -> LigneImportResponse:
-    """Importe une liste de codes barres (CSV ou XLSX) dans la campagne.
+    """Importe une liste d'articles (CSV ou XLSX) dans la campagne.
 
-    Colonnes : code_barre (requise), quantite_theorique (optionnelle).
-    Les codes barres déjà présents sont ignorés (skipped).
+    Colonnes : code_article (requise), quantite_theorique (optionnelle).
+    Les articles déjà présents (même code_article) sont ignorés (skipped).
     """
     campagne = await _get_campagne_or_404(campagne_id, db)
     _require_statut(campagne, *_STATUTS_EDITABLES)
@@ -450,10 +450,10 @@ async def import_articles_campagne(
     if not rows:
         return LigneImportResponse(added=0, skipped=0, errors=[])
 
-    if "code_barre" not in rows[0]:
+    if "code_article" not in rows[0]:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Colonne 'code_barre' manquante",
+            detail="Colonne 'code_article' manquante",
         )
 
     societe_id = await _get_societe_id_magasin(campagne.magasin_id, db)
@@ -462,9 +462,9 @@ async def import_articles_campagne(
     errors: list[str] = []
 
     for i, row in enumerate(rows, start=2):
-        code_barre = row.get("code_barre", "").strip()
-        if not code_barre:
-            errors.append(f"Ligne {i} : code_barre vide")
+        code_article = row.get("code_article", "").strip()
+        if not code_article:
+            errors.append(f"Ligne {i} : code_article vide")
             continue
 
         qt_raw = row.get("quantite_theorique", "").strip()
@@ -473,17 +473,17 @@ async def import_articles_campagne(
         except ValueError:
             qt = None
 
-        # Lookup article
+        # Lookup article par code_article (prend le premier actif trouvé)
         art_res = await db.execute(
             select(Article).where(
-                Article.code_barre == code_barre,
+                Article.code_article == code_article,
                 Article.societe_id == societe_id,
                 Article.actif == True,  # noqa: E712
             )
         )
-        article = art_res.scalar_one_or_none()
+        article = art_res.scalars().first()
         if not article:
-            errors.append(f"Ligne {i} : code barre '{code_barre}' introuvable dans le catalogue")
+            errors.append(f"Ligne {i} : code article '{code_article}' introuvable dans le catalogue")
             continue
 
         # Doublon par code_article (une seule ligne par code article dans la campagne)
@@ -492,7 +492,7 @@ async def import_articles_campagne(
             .join(Article, Article.id == LigneCampagne.article_id)
             .where(
                 LigneCampagne.campagne_id == campagne_id,
-                Article.code_article == article.code_article,
+                Article.code_article == code_article,
             )
         )
         if dup.scalar_one_or_none():

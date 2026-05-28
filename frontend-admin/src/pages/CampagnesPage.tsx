@@ -1100,7 +1100,7 @@ export default function CampagnesPage() {
             <h2 className="text-lg font-bold mb-2">Importer des articles</h2>
             <p className="text-sm text-gray-500 mb-4">
               Fichier CSV ou XLSX avec colonne{" "}
-              <code className="bg-gray-100 px-1 rounded">code_barre</code> (requis) et{" "}
+              <code className="bg-gray-100 px-1 rounded">code_article</code> (requis) et{" "}
               <code className="bg-gray-100 px-1 rounded">quantite_theorique</code> (optionnel).
             </p>
             <input
