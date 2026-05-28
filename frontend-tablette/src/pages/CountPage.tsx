@@ -39,7 +39,7 @@ export default function CountPage() {
     setArticle(found);
     setState("confirm");
     setError("");
-    const dansLaCampagne = currentCampagne?.lignes.some((l) => l.article_id === found.id) ?? false;
+    const dansLaCampagne = currentCampagne?.lignes.some((l) => l.article.code_article === found.code_article) ?? false;
     setArticleHorsCampagne(!dansLaCampagne);
     return true;
   };
