@@ -26,6 +26,7 @@ export default function DashboardPage() {
   const [loadingCampagne, setLoadingCampagne] = useState(true);
   const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
   const [addQty, setAddQty] = useState<Record<string, string>>({});
+  const [addComment, setAddComment] = useState<Record<string, string>>({});
   const [addedArticle, setAddedArticle] = useState<string | null>(null); // flash feedback
   const [barcodeInput, setBarcodeInput] = useState("");
   const [codeArticleInput, setCodeArticleInput] = useState("");
@@ -165,6 +166,7 @@ export default function DashboardPage() {
     const ligne = lignesUniques.find((l) => l.article.code_article === codeArticle);
     if (!ligne) return;
 
+    const comment = addComment[codeArticle]?.trim() || undefined;
     const comptage: ComptageLocal = {
       client_uuid: uuidv4(),
       campagne_id: campagne.id,
@@ -172,6 +174,7 @@ export default function DashboardPage() {
       quantite: qty,
       counted_at: new Date().toISOString(),
       synced: false,
+      commentaire: comment,
     };
     await saveComptage(comptage);
 
@@ -184,6 +187,7 @@ export default function DashboardPage() {
     setPendingCount(pendingCount + 1);
 
     setAddQty((prev) => ({ ...prev, [codeArticle]: "" }));
+    setAddComment((prev) => ({ ...prev, [codeArticle]: "" }));
     setAddedArticle(codeArticle);
     setTimeout(() => setAddedArticle(null), 1000);
     setTimeout(() => qtyInputRefs.current[codeArticle]?.focus(), 50);
@@ -500,6 +504,22 @@ export default function DashboardPage() {
                                   }}
                                   className="border rounded px-2 py-1.5 text-sm w-20 text-right font-mono focus:outline-none focus:ring-2 focus:ring-green-400"
                                 />
+                                <input
+                                  type="text"
+                                  placeholder="Commentaire"
+                                  value={addComment[codeArticle] ?? ""}
+                                  onChange={(e) =>
+                                    setAddComment((prev) => ({
+                                      ...prev,
+                                      [codeArticle]: e.target.value,
+                                    }))
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleAddComptage(codeArticle);
+                                  }}
+                                  className="border rounded px-2 py-1.5 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-600"
+                                  maxLength={500}
+                                />
                                 <button
                                   onClick={() => handleAddComptage(codeArticle)}
                                   disabled={!addQty[codeArticle]}
@@ -528,6 +548,7 @@ export default function DashboardPage() {
                                   <thead>
                                     <tr className="text-gray-500 border-b border-gray-200">
                                       <th className="text-left pb-1 pr-4 font-medium">Date</th>
+                                      <th className="text-left pb-1 pr-4 font-medium">Commentaire</th>
                                       <th className="text-right pb-1 pr-3 font-medium">Qté</th>
                                       <th className="pb-1 w-6"></th>
                                     </tr>
@@ -535,13 +556,16 @@ export default function DashboardPage() {
                                   <tbody>
                                     {cpts.map((c) => (
                                       <tr key={c.client_uuid} className="border-t border-gray-100">
-                                        <td className="pr-4 py-1 text-gray-500">
+                                        <td className="pr-4 py-1 text-gray-500 whitespace-nowrap">
                                           {new Date(c.counted_at).toLocaleString("fr-FR")}
                                           {!c.synced && (
                                             <span className="ml-1 text-orange-500 text-xs" title="Non synchronisé">●</span>
                                           )}
                                         </td>
-                                        <td className="pr-3 py-1 text-right font-mono font-medium">
+                                        <td className="pr-4 py-1 text-gray-500 text-xs italic max-w-[160px] truncate">
+                                          {c.commentaire || ""}
+                                        </td>
+                                        <td className="pr-3 py-1 text-right font-mono font-medium whitespace-nowrap">
                                           {c.quantite % 1 === 0 ? c.quantite : c.quantite.toFixed(3)}
                                           {ligne.article.unite ? ` ${ligne.article.unite}` : ""}
                                         </td>

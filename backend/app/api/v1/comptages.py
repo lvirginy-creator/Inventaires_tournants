@@ -93,6 +93,7 @@ async def submit_comptage(
         quantite=payload.quantite,
         client_uuid=payload.client_uuid,
         counted_at=counted_at,
+        commentaire=payload.commentaire,
     )
     db.add(comptage)
     try:
@@ -156,6 +157,7 @@ async def submit_batch(
                 quantite=item.quantite,
                 client_uuid=item.client_uuid,
                 counted_at=counted_at,
+                commentaire=item.commentaire,
             )
         )
         created += 1
@@ -245,6 +247,7 @@ async def list_comptages_campagne(
             Comptage.counted_at,
             Comptage.created_at,
             Comptage.saisie_admin,
+            Comptage.commentaire,
             Article.code_barre,
             Article.code_article,
             Article.libelle,
@@ -281,6 +284,7 @@ async def list_comptages_campagne(
             created_at=row.created_at,
             tablette_nom=row.tablette_nom,
             saisie_admin=row.saisie_admin,
+            commentaire=row.commentaire,
         )
         articles_map[row.article_id].comptages.append(detail)
         articles_map[row.article_id].nb_comptages += 1

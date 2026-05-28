@@ -715,6 +715,9 @@ export default function CampagnesPage() {
                                               <th className="text-left pb-1 pr-6 font-medium">
                                                 Date
                                               </th>
+                                              <th className="text-left pb-1 pr-4 font-medium">
+                                                Commentaire
+                                              </th>
                                               <th className="text-right pb-1 pr-4 font-medium">
                                                 Qté
                                               </th>
@@ -742,6 +745,9 @@ export default function CampagnesPage() {
                                                   {new Date(c.counted_at).toLocaleString(
                                                     "fr-FR"
                                                   )}
+                                                </td>
+                                                <td className="pr-4 py-1 text-gray-500 text-xs italic max-w-[180px] truncate">
+                                                  {c.commentaire || ""}
                                                 </td>
                                                 <td className="pr-4 py-1 text-right font-mono font-medium">
                                                   {c.quantite}

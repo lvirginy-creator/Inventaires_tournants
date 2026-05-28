@@ -31,6 +31,7 @@ export interface ComptageLocal {
   quantite: number;
   counted_at: string; // ISO date
   synced: boolean;
+  commentaire?: string;
 }
 
 export interface TabletteAuth {

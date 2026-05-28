@@ -11,6 +11,7 @@ class ComptageCreate(BaseModel):
     quantite: Decimal = Field(..., ge=0)
     client_uuid: str = Field(..., min_length=36, max_length=36)
     counted_at: datetime
+    commentaire: str | None = Field(None, max_length=500)
 
 
 class ComptageRead(BaseModel):
@@ -26,6 +27,7 @@ class ComptageRead(BaseModel):
     counted_at: datetime
     created_at: datetime
     saisie_admin: bool = False
+    commentaire: str | None = None
 
 
 class BatchComptageRequest(BaseModel):
@@ -59,6 +61,7 @@ class ComptageDetail(BaseModel):
     created_at: datetime
     tablette_nom: str | None  # None pour les saisies admin
     saisie_admin: bool
+    commentaire: str | None = None
 
 
 class ComptagesParArticle(BaseModel):

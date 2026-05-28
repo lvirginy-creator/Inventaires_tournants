@@ -41,6 +41,7 @@ export async function runSync(lastSyncAt: string | null): Promise<SyncResult> {
             quantite: c.quantite,
             client_uuid: c.client_uuid,
             counted_at: c.counted_at,
+            commentaire: c.commentaire ?? null,
           })),
         }
       );

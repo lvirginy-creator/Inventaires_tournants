@@ -105,6 +105,7 @@ export interface ComptageDetail {
   created_at: string;
   tablette_nom: string | null;
   saisie_admin: boolean;
+  commentaire: string | null;
 }
 
 export interface ComptagesParArticle {
