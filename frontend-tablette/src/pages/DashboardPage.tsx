@@ -170,9 +170,20 @@ export default function DashboardPage() {
     setTimeout(() => qtyInputRefs.current[codeArticle]?.focus(), 50);
   };
 
-  const handleDeleteComptage = async (clientUuid: string) => {
+  const handleDeleteComptage = async (cpt: ComptageLocal) => {
     if (!campagne) return;
-    await db.comptages.delete(clientUuid);
+    if (!confirm("Supprimer ce comptage ?")) return;
+    if (cpt.synced) {
+      try {
+        await api.delete(`/campagne-active/comptages/${cpt.client_uuid}`);
+      } catch (err) {
+        const detail =
+          (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        alert(detail ?? "Erreur lors de la suppression — vérifiez votre connexion.");
+        return;
+      }
+    }
+    await db.comptages.delete(cpt.client_uuid);
     await loadComptages(campagne);
   };
 
@@ -505,7 +516,7 @@ export default function DashboardPage() {
                                         <td className="pr-4 py-1 text-gray-500">
                                           {new Date(c.counted_at).toLocaleString("fr-FR")}
                                           {!c.synced && (
-                                            <span className="ml-1 text-orange-500 text-xs">●</span>
+                                            <span className="ml-1 text-orange-500 text-xs" title="Non synchronisé">●</span>
                                           )}
                                         </td>
                                         <td className="pr-3 py-1 text-right font-mono font-medium">
@@ -513,15 +524,13 @@ export default function DashboardPage() {
                                           {ligne.article.unite ? ` ${ligne.article.unite}` : ""}
                                         </td>
                                         <td className="py-1 text-right">
-                                          {!c.synced && (
-                                            <button
-                                              onClick={() => handleDeleteComptage(c.client_uuid)}
-                                              className="text-red-400 hover:text-red-600"
-                                              title="Supprimer ce comptage"
-                                            >
-                                              ✕
-                                            </button>
-                                          )}
+                                          <button
+                                            onClick={() => handleDeleteComptage(c)}
+                                            className="text-red-400 hover:text-red-600 px-1"
+                                            title="Supprimer ce comptage"
+                                          >
+                                            ✕
+                                          </button>
                                         </td>
                                       </tr>
                                     ))}
