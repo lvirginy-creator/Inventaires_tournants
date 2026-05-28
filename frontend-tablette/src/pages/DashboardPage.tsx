@@ -79,7 +79,8 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    refreshState();
+    // Load local DB first for instant display, then sync in background
+    refreshState().then(() => handleSync());
     barcodeRef.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
