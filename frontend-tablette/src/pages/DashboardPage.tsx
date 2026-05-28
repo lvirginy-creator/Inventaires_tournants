@@ -98,6 +98,8 @@ export default function DashboardPage() {
   const countedCount = uniqueCodeArticles.filter(
     (ca) => (comptagesMap.get(ca)?.length ?? 0) > 0
   ).length;
+  const allArticlesCounted =
+    lignesUniques.length > 0 && countedCount === lignesUniques.length;
 
   // ── Navigation helpers ───────────────────────────────────────────────────────
 
@@ -163,7 +165,7 @@ export default function DashboardPage() {
   const handleAddComptage = async (codeArticle: string) => {
     if (!campagne) return;
     const qty = parseFloat(addQty[codeArticle] ?? "");
-    if (isNaN(qty) || qty <= 0) return;
+    if (isNaN(qty) || qty < 0) return;
     const ligne = lignesUniques.find((l) => l.article.code_article === codeArticle);
     if (!ligne) return;
 
@@ -237,6 +239,7 @@ export default function DashboardPage() {
 
   const handleCloturer = async () => {
     if (!campagne) return;
+    if (!allArticlesCounted) return;
     if (!confirm(`Clôturer la campagne « ${campagne.nom} » ?\nLes tablettes ne pourront plus saisir de comptages.`)) return;
     try {
       setCloturerLoading(true);
@@ -616,13 +619,25 @@ export default function DashboardPage() {
               🔄 {syncLabel[status]}
             </button>
             {campagne.statut === "en_cours" && (
-              <button
-                onClick={handleCloturer}
-                disabled={cloturerLoading || status === "syncing"}
-                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-3 rounded-xl text-sm shadow transition-colors disabled:opacity-50"
-              >
-                {cloturerLoading ? "Clôture…" : "Clôturer"}
-              </button>
+              <div className="flex-1 flex flex-col gap-1">
+                <button
+                  onClick={handleCloturer}
+                  disabled={cloturerLoading || status === "syncing" || !allArticlesCounted}
+                  title={
+                    !allArticlesCounted
+                      ? `${lignesUniques.length - countedCount} article(s) sans comptage`
+                      : undefined
+                  }
+                  className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-3 rounded-xl text-sm shadow transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {cloturerLoading ? "Clôture…" : "Clôturer"}
+                </button>
+                {!allArticlesCounted && (
+                  <p className="text-center text-xs text-yellow-700">
+                    {lignesUniques.length - countedCount} article(s) sans comptage
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
