@@ -110,8 +110,8 @@ export default function MagasinsPage() {
 
   const [deleteError, setDeleteError] = useState("");
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer ce magasin ? Cette action est irréversible.")) return;
+  const handleDelete = async (id: string, nom: string) => {
+    if (!confirm(`Supprimer le magasin "${nom}" ? Cette action est irréversible.`)) return;
     setDeleteError("");
     try {
       await api.delete(`/magasins/${id}`);
@@ -119,6 +119,19 @@ export default function MagasinsPage() {
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setDeleteError(msg ?? "Erreur lors de la suppression");
+    }
+  };
+
+  const handleForceDelete = async (id: string, nom: string) => {
+    if (!confirm(`⚠ SUPPRESSION FORCÉE du magasin "${nom}"\n\nToutes les données seront définitivement supprimées :\n• Tablettes et sessions\n• Campagnes et leurs articles\n• Tous les comptages\n\nCette action est IRRÉVERSIBLE. Confirmer ?`)) return;
+    if (!confirm(`Dernière confirmation : supprimer définitivement "${nom}" et toutes ses données ?`)) return;
+    setDeleteError("");
+    try {
+      await api.delete(`/magasins/${id}?force=true`);
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setDeleteError(msg ?? "Erreur lors de la suppression forcée");
     }
   };
 
@@ -272,7 +285,7 @@ export default function MagasinsPage() {
                       {m.actif ? "Actif" : "Inactif"}
                     </button>
                   </td>
-                  <td className="px-4 py-3 text-right space-x-3">
+                  <td className="px-4 py-3 text-right space-x-3 whitespace-nowrap">
                     <button
                       onClick={() => editingId === m.id ? setEditingId(null) : startEdit(m)}
                       className="text-xs text-blue-600 hover:text-blue-800"
@@ -280,10 +293,17 @@ export default function MagasinsPage() {
                       {editingId === m.id ? "Annuler" : "Modifier"}
                     </button>
                     <button
-                      onClick={() => handleDelete(m.id)}
+                      onClick={() => handleDelete(m.id, m.nom)}
                       className="text-xs text-red-500 hover:text-red-700"
                     >
                       Supprimer
+                    </button>
+                    <button
+                      onClick={() => handleForceDelete(m.id, m.nom)}
+                      className="text-xs text-red-800 hover:text-red-900 font-semibold"
+                      title="Supprime le magasin et toutes ses données (tablettes, campagnes, comptages)"
+                    >
+                      ⚠ Forcer
                     </button>
                   </td>
                 </tr>

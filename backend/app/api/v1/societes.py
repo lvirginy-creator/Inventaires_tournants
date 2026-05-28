@@ -1,13 +1,17 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_admin, require_admin_role
 from app.core.database import get_db
+from app.models.campagne import Campagne, LigneCampagne
+from app.models.comptage import Comptage
+from app.models.magasin import Magasin
 from app.models.societe import Societe
+from app.models.tablette import SessionTablette, Tablette, TokenAppairage
 from app.models.utilisateur import Utilisateur
 from app.schemas.societe import SocieteCreate, SocieteResponse, SocieteUpdate
 
@@ -80,6 +84,7 @@ async def update_societe(
 @router.delete("/{societe_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_societe(
     societe_id: uuid.UUID,
+    force: bool = Query(False, description="Supprime en cascade tous les magasins et leurs données"),
     db: AsyncSession = Depends(get_db),
     _: Utilisateur = Depends(require_admin_role),
 ) -> None:
@@ -87,6 +92,23 @@ async def delete_societe(
     societe = result.scalar_one_or_none()
     if not societe:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Société introuvable")
+
+    if force:
+        # Récupérer les IDs des magasins de cette société
+        mag_ids_subq = select(Magasin.id).where(Magasin.societe_id == societe_id).scalar_subquery()
+        camp_ids_subq = select(Campagne.id).where(Campagne.magasin_id.in_(mag_ids_subq)).scalar_subquery()
+        # Cascade dans l'ordre des FK
+        await db.execute(delete(Comptage).where(Comptage.magasin_id.in_(mag_ids_subq)))
+        await db.execute(delete(LigneCampagne).where(LigneCampagne.campagne_id.in_(camp_ids_subq)))
+        await db.execute(delete(Campagne).where(Campagne.magasin_id.in_(mag_ids_subq)))
+        await db.execute(delete(SessionTablette).where(SessionTablette.magasin_id.in_(mag_ids_subq)))
+        await db.execute(delete(TokenAppairage).where(TokenAppairage.magasin_id.in_(mag_ids_subq)))
+        await db.execute(delete(Tablette).where(Tablette.magasin_id.in_(mag_ids_subq)))
+        await db.execute(delete(Magasin).where(Magasin.societe_id == societe_id))
+        await db.delete(societe)
+        await db.commit()
+        return
+
     try:
         await db.delete(societe)
         await db.commit()

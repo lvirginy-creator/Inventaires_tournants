@@ -36,8 +36,8 @@ export default function SocietesPage() {
     load();
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer cette société ? Cette action est irréversible.")) return;
+  const handleDelete = async (id: string, nom: string) => {
+    if (!confirm(`Supprimer la société "${nom}" ? Cette action est irréversible.`)) return;
     setDeleteError("");
     try {
       await api.delete(`/societes/${id}`);
@@ -45,6 +45,19 @@ export default function SocietesPage() {
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setDeleteError(msg ?? "Erreur lors de la suppression");
+    }
+  };
+
+  const handleForceDelete = async (id: string, nom: string) => {
+    if (!confirm(`⚠ SUPPRESSION FORCÉE de la société "${nom}"\n\nTous les magasins et leurs données seront définitivement supprimés :\n• Tous les magasins de cette société\n• Tablettes, sessions, campagnes, comptages\n\nCette action est IRRÉVERSIBLE. Confirmer ?`)) return;
+    if (!confirm(`Dernière confirmation : supprimer définitivement la société "${nom}" et TOUTES ses données ?`)) return;
+    setDeleteError("");
+    try {
+      await api.delete(`/societes/${id}?force=true`);
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setDeleteError(msg ?? "Erreur lors de la suppression forcée");
     }
   };
 
@@ -129,12 +142,19 @@ export default function SocietesPage() {
                     {s.actif ? "Actif" : "Inactif"}
                   </button>
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-right space-x-3 whitespace-nowrap">
                   <button
-                    onClick={() => handleDelete(s.id)}
+                    onClick={() => handleDelete(s.id, s.nom)}
                     className="text-xs text-red-500 hover:text-red-700"
                   >
                     Supprimer
+                  </button>
+                  <button
+                    onClick={() => handleForceDelete(s.id, s.nom)}
+                    className="text-xs text-red-800 hover:text-red-900 font-semibold"
+                    title="Supprime la société et tous ses magasins avec leurs données"
+                  >
+                    ⚠ Forcer
                   </button>
                 </td>
               </tr>

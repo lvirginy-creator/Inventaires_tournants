@@ -1,15 +1,18 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_admin, require_admin_role
 from app.core.database import get_db
 from app.core.security import hash_password
+from app.models.campagne import Campagne, LigneCampagne
+from app.models.comptage import Comptage
 from app.models.magasin import Magasin
 from app.models.societe import Societe
+from app.models.tablette import SessionTablette, Tablette, TokenAppairage
 from app.models.utilisateur import Utilisateur
 from app.schemas.magasin import (
     MagasinCreate,
@@ -143,6 +146,7 @@ async def reset_passwords(
 @router.delete("/{magasin_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_magasin(
     magasin_id: uuid.UUID,
+    force: bool = Query(False, description="Supprime en cascade toutes les données liées"),
     db: AsyncSession = Depends(get_db),
     _: Utilisateur = Depends(require_admin_role),
 ) -> None:
@@ -150,6 +154,20 @@ async def delete_magasin(
     magasin = result.scalar_one_or_none()
     if not magasin:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Magasin introuvable")
+
+    if force:
+        # Cascade manuelle dans l'ordre des FK
+        campagne_ids_subq = select(Campagne.id).where(Campagne.magasin_id == magasin_id).scalar_subquery()
+        await db.execute(delete(Comptage).where(Comptage.magasin_id == magasin_id))
+        await db.execute(delete(LigneCampagne).where(LigneCampagne.campagne_id.in_(campagne_ids_subq)))
+        await db.execute(delete(Campagne).where(Campagne.magasin_id == magasin_id))
+        await db.execute(delete(SessionTablette).where(SessionTablette.magasin_id == magasin_id))
+        await db.execute(delete(TokenAppairage).where(TokenAppairage.magasin_id == magasin_id))
+        await db.execute(delete(Tablette).where(Tablette.magasin_id == magasin_id))
+        await db.delete(magasin)
+        await db.commit()
+        return
+
     try:
         await db.delete(magasin)
         await db.commit()
