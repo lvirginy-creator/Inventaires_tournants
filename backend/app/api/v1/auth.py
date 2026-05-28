@@ -140,14 +140,6 @@ async def appairer_tablette(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Token d'appairage expiré"
         )
 
-    # Vérifie qu'aucune tablette n'est déjà associée à ce magasin
-    existing = await db.execute(select(Tablette).where(Tablette.magasin_id == token_obj.magasin_id))
-    if existing.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Ce magasin a déjà une tablette associée",
-        )
-
     result_magasin = await db.execute(select(Magasin).where(Magasin.id == token_obj.magasin_id))
     magasin = result_magasin.scalar_one_or_none()
     if not magasin or not magasin.actif:

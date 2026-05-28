@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -29,5 +29,5 @@ class Magasin(Base):
     )
 
     societe: Mapped["Societe"] = relationship(back_populates="magasins")
-    tablette: Mapped[Optional["Tablette"]] = relationship(back_populates="magasin", uselist=False)
+    tablettes: Mapped[list["Tablette"]] = relationship(back_populates="magasin")
     sessions: Mapped[list["SessionTablette"]] = relationship(back_populates="magasin")

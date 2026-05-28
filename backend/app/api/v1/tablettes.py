@@ -52,10 +52,15 @@ async def delete_tablette(
     db: AsyncSession = Depends(get_db),
     _: Utilisateur = Depends(require_admin_role),
 ) -> None:
+    from sqlalchemy import delete as sa_delete
+
+    from app.models.tablette import SessionTablette
+
     result = await db.execute(select(Tablette).where(Tablette.id == tablette_id))
     tablette = result.scalar_one_or_none()
     if not tablette:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tablette introuvable")
+    await db.execute(sa_delete(SessionTablette).where(SessionTablette.tablette_id == tablette_id))
     await db.delete(tablette)
     await db.commit()
     logger.info(f"Tablette supprimée: {tablette_id}")

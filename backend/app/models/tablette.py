@@ -22,14 +22,14 @@ class Tablette(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     magasin_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("magasins.id"), unique=True, nullable=False
+        ForeignKey("magasins.id"), nullable=False
     )
     nom: Mapped[str] = mapped_column(String(100), nullable=False)
     device_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     derniere_sync: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
-    magasin: Mapped["Magasin"] = relationship(back_populates="tablette")
+    magasin: Mapped["Magasin"] = relationship(back_populates="tablettes")
     sessions: Mapped[list["SessionTablette"]] = relationship(back_populates="tablette")
 
 

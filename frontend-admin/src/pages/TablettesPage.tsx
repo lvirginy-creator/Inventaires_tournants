@@ -8,6 +8,7 @@ export default function TablettesPage() {
   const [token, setToken] = useState<TokenAppairage | null>(null);
   const [selectedMagasin, setSelectedMagasin] = useState("");
   const [error, setError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
 
   const load = () =>
     Promise.all([api.get<Tablette[]>("/tablettes"), api.get<Magasin[]>("/magasins")]).then(
@@ -37,12 +38,20 @@ export default function TablettesPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Supprimer cette tablette ?")) return;
-    await api.delete(`/tablettes/${id}`);
-    load();
+    setDeleteError("");
+    try {
+      await api.delete(`/tablettes/${id}`);
+      await load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setDeleteError(msg ?? "Erreur lors de la suppression");
+    }
   };
 
-  const magasinNom = (id: string) =>
-    magasins.find((m) => m.id === id)?.code ?? id.slice(0, 8);
+  const magasinNom = (id: string) => {
+    const m = magasins.find((mg) => mg.id === id);
+    return m ? `${m.code} — ${m.nom}` : id.slice(0, 8);
+  };
 
   return (
     <div>
@@ -82,6 +91,10 @@ export default function TablettesPage() {
           </div>
         )}
       </div>
+
+      {deleteError && (
+        <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2 mb-4">{deleteError}</p>
+      )}
 
       <div className="bg-white rounded-xl shadow overflow-hidden">
         <table className="min-w-full text-sm">
