@@ -41,10 +41,21 @@ export default function DashboardPage() {
 
   const loadComptages = async (c: CampagneLocal) => {
     const all = await db.comptages.where("campagne_id").equals(c.id).toArray();
+
+    // Build article_id → code_article from the campaign's embedded ligne data
+    // This avoids relying on db.articles which may not contain all campaign article IDs
+    const articleCodeMap = new Map<string, string>(
+      c.lignes.map((l) => [l.article_id, l.article.code_article])
+    );
+
     const map = new Map<string, ComptageLocal[]>();
     for (const cpt of all) {
-      const art = await db.articles.get(cpt.article_id);
-      const key = art?.code_article ?? cpt.article_id;
+      // Prefer campaign data; fall back to db.articles for hors-campagne counts
+      let key = articleCodeMap.get(cpt.article_id);
+      if (!key) {
+        const art = await db.articles.get(cpt.article_id);
+        key = art?.code_article ?? cpt.article_id;
+      }
       const arr = map.get(key) ?? [];
       arr.push(cpt);
       map.set(key, arr);
