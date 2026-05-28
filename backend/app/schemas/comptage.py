@@ -54,8 +54,8 @@ class ComptageDetail(BaseModel):
 
     id: uuid.UUID
     article_id: uuid.UUID
-    code_barre: str
-    libelle: str
+    code_barre: str | None  # None si l'article n'existe plus en base
+    libelle: str | None
     quantite: Decimal
     counted_at: datetime
     created_at: datetime
@@ -68,9 +68,9 @@ class ComptagesParArticle(BaseModel):
     """Tous les comptages d'un article pour une campagne."""
 
     article_id: uuid.UUID
-    code_barre: str
-    code_article: str
-    libelle: str
+    code_barre: str | None
+    code_article: str  # code article ou str(article_id) si article inconnu
+    libelle: str | None
     nb_comptages: int
     total: Decimal
     comptages: list[ComptageDetail]

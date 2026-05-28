@@ -238,7 +238,7 @@ async def list_comptages_campagne(
             detail="Aucun comptage pour une campagne en brouillon",
         )
 
-    # Jointure : comptages → articles, sessions_tablette → tablettes
+    # Jointure : comptages → articles (outer pour ne rien exclure), sessions → tablettes
     stmt = (
         select(
             Comptage.id,
@@ -253,18 +253,18 @@ async def list_comptages_campagne(
             Article.libelle,
             Tablette.nom.label("tablette_nom"),
         )
-        .join(Article, Article.id == Comptage.article_id)
+        .outerjoin(Article, Article.id == Comptage.article_id)
         .outerjoin(SessionTablette, SessionTablette.id == Comptage.session_id)
         .outerjoin(Tablette, Tablette.id == SessionTablette.tablette_id)
         .where(Comptage.campagne_id == campagne_id)
-        .order_by(Article.code_barre, Comptage.counted_at)
+        .order_by(Comptage.counted_at)
     )
     rows = (await db.execute(stmt)).all()
 
-    # Grouper par code_article (cohérence avec le rapport multi-codes-barres)
+    # Grouper par code_article ; si article inconnu → clé = str(article_id)
     articles_map: dict[str, ComptagesParArticle] = {}
     for row in rows:
-        key = row.code_article
+        key = row.code_article or str(row.article_id)
         if key not in articles_map:
             articles_map[key] = ComptagesParArticle(
                 article_id=row.article_id,

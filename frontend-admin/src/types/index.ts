@@ -98,8 +98,8 @@ export interface CampagneDetail extends CampagneSummary {
 export interface ComptageDetail {
   id: string;
   article_id: string;
-  code_barre: string;
-  libelle: string;
+  code_barre: string | null;
+  libelle: string | null;
   quantite: number;
   counted_at: string;
   created_at: string;
@@ -110,9 +110,9 @@ export interface ComptageDetail {
 
 export interface ComptagesParArticle {
   article_id: string;
-  code_barre: string;
+  code_barre: string | null;
   code_article: string;
-  libelle: string;
+  libelle: string | null;
   nb_comptages: number;
   total: number;
   comptages: ComptageDetail[];

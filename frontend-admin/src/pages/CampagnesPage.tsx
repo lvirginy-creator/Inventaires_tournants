@@ -707,7 +707,11 @@ export default function CampagnesPage() {
                                       colSpan={7}
                                       className="px-5 py-3 bg-blue-50/40 border-b border-blue-100"
                                     >
-                                      {artComptages.length === 0 ? (
+                                      {!comptagesData ? (
+                                        <p className="text-xs text-gray-400 italic">
+                                          Chargement des comptages…
+                                        </p>
+                                      ) : artComptages.length === 0 ? (
                                         <p className="text-xs text-gray-400 italic">
                                           Aucun comptage enregistré
                                         </p>
