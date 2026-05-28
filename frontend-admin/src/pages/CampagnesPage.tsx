@@ -288,8 +288,23 @@ export default function CampagnesPage() {
     if (!selected) return;
     setRapportLoading(true);
     try {
-      const r = await api.get<CampagneRapport>(`/campagnes/${selected.id}/rapport`);
-      setRapport(r.data);
+      // Charger rapport et détail comptages en parallèle
+      // Le détail ne bloque pas le rapport en cas d'échec
+      const [rapportRes] = await Promise.all([
+        api.get<CampagneRapport>(`/campagnes/${selected.id}/rapport`),
+        loadComptagesDetail().catch((err: unknown) => {
+          const detail =
+            (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+            "Impossible de charger le détail des comptages";
+          showToast(detail, "error");
+        }),
+      ]);
+      setRapport(rapportRes.data);
+    } catch (err: unknown) {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        "Erreur lors du chargement du rapport";
+      showToast(detail, "error");
     } finally {
       setRapportLoading(false);
     }
@@ -327,29 +342,20 @@ export default function CampagnesPage() {
 
   const loadComptagesDetail = async () => {
     if (!selected) return;
-    try {
-      const r = await api.get<ComptagesCampagneResponse>(
-        `/campagnes/${selected.id}/comptages`
-      );
-      setComptagesData(r.data);
-    } catch {
-      /* silencieux — le tableau reste vide */
-    }
+    const r = await api.get<ComptagesCampagneResponse>(
+      `/campagnes/${selected.id}/comptages`
+    );
+    setComptagesData(r.data);
   };
 
-  const handleToggleExpand = async (articleId: string) => {
-    if (expandedArticle === articleId) {
-      setExpandedArticle(null);
-      return;
-    }
-    setExpandedArticle(articleId);
-    if (!comptagesData) await loadComptagesDetail();
+  const handleToggleExpand = (articleId: string) => {
+    setExpandedArticle((prev) => (prev === articleId ? null : articleId));
   };
 
   const handleDeleteComptage = async (comptageId: string) => {
     if (!confirm("Supprimer ce comptage ?")) return;
     await api.delete(`/comptages/${comptageId}`);
-    await Promise.all([loadRapport(), loadComptagesDetail()]);
+    await loadRapport();
   };
 
   const handleAddAdminComptage = async (articleId: string) => {
@@ -362,7 +368,7 @@ export default function CampagnesPage() {
         quantite: qty,
       });
       setAddQty((prev) => ({ ...prev, [articleId]: "" }));
-      await Promise.all([loadRapport(), loadComptagesDetail()]);
+      await loadRapport();
       showToast("Comptage ajouté");
     } catch (err: unknown) {
       const detail =

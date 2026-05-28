@@ -261,11 +261,12 @@ async def list_comptages_campagne(
     )
     rows = (await db.execute(stmt)).all()
 
-    # Grouper par article
-    articles_map: dict[uuid.UUID, ComptagesParArticle] = {}
+    # Grouper par code_article (cohérence avec le rapport multi-codes-barres)
+    articles_map: dict[str, ComptagesParArticle] = {}
     for row in rows:
-        if row.article_id not in articles_map:
-            articles_map[row.article_id] = ComptagesParArticle(
+        key = row.code_article
+        if key not in articles_map:
+            articles_map[key] = ComptagesParArticle(
                 article_id=row.article_id,
                 code_barre=row.code_barre,
                 code_article=row.code_article,
@@ -286,9 +287,9 @@ async def list_comptages_campagne(
             saisie_admin=row.saisie_admin,
             commentaire=row.commentaire,
         )
-        articles_map[row.article_id].comptages.append(detail)
-        articles_map[row.article_id].nb_comptages += 1
-        articles_map[row.article_id].total += Decimal(str(row.quantite))
+        articles_map[key].comptages.append(detail)
+        articles_map[key].nb_comptages += 1
+        articles_map[key].total += Decimal(str(row.quantite))
 
     articles = list(articles_map.values())
     return ComptagesCampagneResponse(
