@@ -170,7 +170,7 @@ export default function DashboardPage() {
       next.set(codeArticle, [comptage, ...(prev.get(codeArticle) ?? [])]);
       return next;
     });
-    setPendingCount((prev) => prev + 1);
+    setPendingCount(pendingCount + 1);
 
     setAddQty((prev) => ({ ...prev, [codeArticle]: "" }));
     setAddedArticle(codeArticle);
