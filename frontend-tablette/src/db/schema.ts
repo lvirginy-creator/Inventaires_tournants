@@ -45,6 +45,12 @@ export async function getArticleByCodeArticle(
   return db.articles.where("code_article").equals(codeArticle).first();
 }
 
+export async function getArticlesByCodeArticle(
+  codeArticle: string
+): Promise<ArticleLocal[]> {
+  return db.articles.where("code_article").equals(codeArticle).toArray();
+}
+
 export async function getPendingComptages(): Promise<ComptageLocal[]> {
   return db.comptages.filter((c) => !c.synced).toArray();
 }

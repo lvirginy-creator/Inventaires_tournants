@@ -23,9 +23,11 @@ export default function DashboardPage() {
       const all = await db.comptages.where("campagne_id").equals(c.id).toArray();
       const map = new Map<string, ComptageLocal[]>();
       for (const cpt of all) {
-        const arr = map.get(cpt.article_id) ?? [];
+        const art = await db.articles.get(cpt.article_id);
+        const key = art?.code_article ?? cpt.article_id;
+        const arr = map.get(key) ?? [];
         arr.push(cpt);
-        map.set(cpt.article_id, arr);
+        map.set(key, arr);
       }
       setComptagesMap(map);
     } else {
@@ -72,9 +74,17 @@ export default function DashboardPage() {
     error: "bg-red-600 hover:bg-red-700",
   };
 
-  const countedCount = campagne
-    ? campagne.lignes.filter((l) => comptagesMap.has(l.article_id)).length
-    : 0;
+  const uniqueCampagneCodeArticles = campagne
+    ? [...new Set(campagne.lignes.map((l) => l.article.code_article))]
+    : [];
+  const countedCount = uniqueCampagneCodeArticles.filter((ca) => comptagesMap.has(ca)).length;
+  // One display row per code_article (multi-barcode articles deduplicated)
+  const lignesUniques = campagne
+    ? campagne.lignes.filter(
+        (l, i, arr) =>
+          arr.findIndex((x) => x.article.code_article === l.article.code_article) === i
+      )
+    : [];
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -128,14 +138,14 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between text-sm mb-1">
                     <span className="text-gray-600">Articles comptés</span>
                     <span className="font-semibold text-gray-900">
-                      {countedCount} / {campagne.lignes.length}
+                      {countedCount} / {uniqueCampagneCodeArticles.length}
                     </span>
                   </div>
                   <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-blue-600 rounded-full transition-all"
                       style={{
-                        width: `${Math.min(100, (countedCount / campagne.lignes.length) * 100)}%`,
+                        width: `${Math.min(100, (countedCount / uniqueCampagneCodeArticles.length) * 100)}%`,
                       }}
                     />
                   </div>
@@ -158,8 +168,8 @@ export default function DashboardPage() {
               <h2 className="text-sm font-semibold text-gray-700">Articles à inventorier</h2>
             </div>
             <ul className="divide-y divide-gray-100">
-              {campagne.lignes.map((ligne) => {
-                const cpts = comptagesMap.get(ligne.article_id);
+              {lignesUniques.map((ligne) => {
+                const cpts = comptagesMap.get(ligne.article.code_article);
                 const isCounted = !!cpts && cpts.length > 0;
                 const totalQty = cpts
                   ? cpts.reduce((sum, c) => sum + c.quantite, 0)

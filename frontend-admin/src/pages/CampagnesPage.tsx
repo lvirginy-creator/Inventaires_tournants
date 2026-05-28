@@ -372,9 +372,9 @@ export default function CampagnesPage() {
     }
   };
 
-  const comptagesParArticle = (articleIds: string[]) =>
+  const comptagesParCodeArticle = (codeArticle: string) =>
     comptagesData?.articles
-      .filter((a) => articleIds.includes(a.article_id))
+      .filter((a) => a.code_article === codeArticle)
       .flatMap((a) => a.comptages) ?? [];
 
   const canEditComptages =
@@ -648,9 +648,9 @@ export default function CampagnesPage() {
                                   ? "text-green-700 font-medium"
                                   : "text-red-600 font-semibold";
                             const isExpanded = expandedArticle === lg.article_id;
-                            const artComptages = comptagesParArticle(lg.article_ids);
+                            const artComptages = comptagesParCodeArticle(lg.code_article);
                             const nbComptages = comptagesData?.articles
-                              .filter((a) => lg.article_ids.includes(a.article_id))
+                              .filter((a) => a.code_article === lg.code_article)
                               .reduce((sum, a) => sum + a.nb_comptages, 0);
                             return (
                               <Fragment key={lg.article_id}>

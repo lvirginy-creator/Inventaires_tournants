@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
-import { getCampagneActive, getArticleByCodeBarre, getArticleByCodeArticle, saveComptage, getPendingComptages } from "@/db/schema";
+import { getCampagneActive, getArticleByCodeBarre, getArticlesByCodeArticle, saveComptage, getPendingComptages } from "@/db/schema";
 import { useSyncStore } from "@/store/sync";
 import type { ArticleLocal, CampagneLocal } from "@/types";
 
@@ -62,12 +62,17 @@ export default function CountPage() {
     const code = codeArticle.trim();
     if (!code) return;
 
-    const found = await getArticleByCodeArticle(code);
-    if (!findAndConfirm(found, campagne)) {
+    const candidates = await getArticlesByCodeArticle(code);
+    if (candidates.length === 0) {
       setError(`Code article "${code}" introuvable`);
       setCodeArticle("");
       codeArticleRef.current?.focus();
+      return;
     }
+    // Prefer an article whose ID is already in the campaign's lignes
+    const campaignArticleIds = new Set(campagne?.lignes.map((l) => l.article_id) ?? []);
+    const preferred = candidates.find((a) => campaignArticleIds.has(a.id)) ?? candidates[0];
+    findAndConfirm(preferred, campagne);
   };
 
   const handleQuantiteSubmit = async () => {
