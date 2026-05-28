@@ -363,17 +363,19 @@ async def add_article(
             detail="Article introuvable ou n'appartenant pas à la société du magasin",
         )
 
-    # Doublon ?
+    # Doublon par code_article (un seul code article par campagne, tous codes-barres confondus)
     dup = await db.execute(
-        select(LigneCampagne).where(
+        select(LigneCampagne)
+        .join(Article, Article.id == LigneCampagne.article_id)
+        .where(
             LigneCampagne.campagne_id == campagne_id,
-            LigneCampagne.article_id == payload.article_id,
+            Article.code_article == article.code_article,
         )
     )
     if dup.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Cet article est déjà dans la campagne",
+            detail="Un article avec ce code article est déjà dans la campagne",
         )
 
     ligne = LigneCampagne(
@@ -484,11 +486,13 @@ async def import_articles_campagne(
             errors.append(f"Ligne {i} : code barre '{code_barre}' introuvable dans le catalogue")
             continue
 
-        # Doublon ?
+        # Doublon par code_article (une seule ligne par code article dans la campagne)
         dup = await db.execute(
-            select(LigneCampagne).where(
+            select(LigneCampagne)
+            .join(Article, Article.id == LigneCampagne.article_id)
+            .where(
                 LigneCampagne.campagne_id == campagne_id,
-                LigneCampagne.article_id == article.id,
+                Article.code_article == article.code_article,
             )
         )
         if dup.scalar_one_or_none():

@@ -225,31 +225,31 @@ export default function CampagnesPage() {
     if (!selected || !selectedGroup) return;
     setAddError("");
     const qt = addQt ? parseFloat(addQt) : null;
-    const toAdd = selectedGroup.articles.filter(
-      (a) => !selected.lignes.some((l) => l.article_id === a.id)
+
+    // Une seule ligne par code_article : prendre le premier article non encore présent
+    const alreadyInCampagne = selected.lignes.some(
+      (l) => l.article.code_article === selectedGroup.code_article
     );
-    const errors: string[] = [];
-    for (let i = 0; i < toAdd.length; i++) {
-      const article = toAdd[i];
-      try {
-        await api.post(`/campagnes/${selected.id}/articles`, {
-          article_id: article.id,
-          // Quantité théorique uniquement sur le premier code-barre du groupe ;
-          // null sur les suivants pour éviter de multiplier le total.
-          quantite_theorique: i === 0 ? qt : null,
-        });
-      } catch (err: unknown) {
-        const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-        errors.push(detail ?? `Erreur ${article.code_barre}`);
-      }
+    if (alreadyInCampagne) {
+      setAddError("Ce code article est déjà dans la campagne");
+      return;
     }
-    if (errors.length > 0) setAddError(errors.join(" | "));
-    if (toAdd.length > errors.length) {
+    const article = selectedGroup.articles[0];
+    if (!article) return;
+
+    try {
+      await api.post(`/campagnes/${selected.id}/articles`, {
+        article_id: article.id,
+        quantite_theorique: qt,
+      });
       setSelectedGroup(null);
       setArticleSearch("");
       setArticleSearchResults([]);
       setAddQt("");
       refreshSelected();
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setAddError(detail ?? "Erreur lors de l'ajout");
     }
   };
 
