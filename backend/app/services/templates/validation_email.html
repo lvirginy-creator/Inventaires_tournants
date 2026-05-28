@@ -49,7 +49,7 @@
       <table>
         <thead>
           <tr>
-            <th>Code barre</th>
+            <th>Code article</th>
             <th>Libellé</th>
             <th class="num">Théorique</th>
             <th class="num">Compté</th>
@@ -60,7 +60,7 @@
         <tbody>
           {% for l in lignes %}
           <tr>
-            <td><code>{{ l.code_barre }}</code></td>
+            <td><code>{{ l.code_article }}</code></td>
             <td>{{ l.libelle }}</td>
             <td class="num">
               {% if l.qt_theo is not none %}{{ "%.3f"|format(l.qt_theo) }}{% else %}—{% endif %}

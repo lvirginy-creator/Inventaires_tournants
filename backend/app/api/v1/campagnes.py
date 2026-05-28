@@ -286,7 +286,7 @@ async def valider_campagne(
         ecart_pct = (ecart / qt_theo * 100) if (qt_theo and qt_theo != 0) else None
         lignes_email.append(
             {
-                "code_barre": art.code_barre,
+                "code_article": art.code_article,
                 "libelle": art.libelle,
                 "qt_theo": qt_theo,
                 "qt_compte": qt_compte,

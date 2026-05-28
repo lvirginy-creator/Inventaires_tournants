@@ -68,7 +68,7 @@ async def send_validation_email(
         campagne_nom: Nom de la campagne validée.
         magasin_nom: Nom du magasin.
         lignes: Liste de dicts avec keys :
-            code_barre, libelle, qt_theo, qt_compte, ecart, ecart_pct.
+            code_article, libelle, qt_theo, qt_compte, ecart, ecart_pct.
     """
     template = _jinja_env.get_template("validation_email.html")
     html = template.render(
