@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import io
 import uuid
+from collections import defaultdict
 from decimal import ROUND_HALF_UP, Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -74,30 +75,120 @@ async def _build_rapport(campagne: Campagne, db: AsyncSession) -> CampagneRappor
     )
     rows = (await db.execute(stmt)).all()
 
-    lignes: list[RapportLigne] = []
+    # ── Étape 1 : construire les lignes par article_id ────────────────────────
+    intermediate: list[dict] = []
     for row in rows:
         raw_theo = row.quantite_theorique
-        qt_theo = Decimal(str(raw_theo)) if raw_theo is not None else None
-        qt_compte = Decimal(str(row.quantite_comptee))
-        if qt_theo is not None:
-            ecart = (qt_compte - qt_theo).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
-            ecart_pct = (float(ecart) / float(qt_theo) * 100) if qt_theo != 0 else None
+        intermediate.append(
+            {
+                "article_id": row.article_id,
+                "code_barre": row.code_barre,
+                "code_article": row.code_article,
+                "libelle": row.libelle,
+                "unite": row.unite,
+                "quantite_theorique": Decimal(str(raw_theo)) if raw_theo is not None else None,
+                "quantite_comptee": Decimal(str(row.quantite_comptee)),
+            }
+        )
+
+    # ── Étape 2 : grouper par code_article ───────────────────────────────────
+    groups: dict[str, list[dict]] = defaultdict(list)
+    for item in intermediate:
+        groups[item["code_article"]].append(item)
+
+    lignes: list[RapportLigne] = []
+    for code_article, group in groups.items():
+        total_theo: Decimal | None = None
+        for item in group:
+            if item["quantite_theorique"] is not None:
+                total_theo = (total_theo or Decimal(0)) + item["quantite_theorique"]
+        total_compte = sum(item["quantite_comptee"] for item in group)
+
+        if total_theo is not None:
+            ecart = (total_compte - total_theo).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+            ecart_pct = (float(ecart) / float(total_theo) * 100) if total_theo != 0 else None
         else:
             ecart = None
             ecart_pct = None
+
         lignes.append(
             RapportLigne(
-                article_id=row.article_id,
-                code_barre=row.code_barre,
-                code_article=row.code_article,
-                libelle=row.libelle,
-                unite=row.unite,
-                quantite_theorique=qt_theo,
-                quantite_comptee=qt_compte,
+                article_id=group[0]["article_id"],
+                article_ids=[item["article_id"] for item in group],
+                code_barres=[item["code_barre"] for item in group if item["code_barre"]],
+                code_article=code_article,
+                libelle=group[0]["libelle"],
+                unite=group[0]["unite"],
+                quantite_theorique=total_theo,
+                quantite_comptee=total_compte,
                 ecart=ecart,
                 ecart_pct=round(ecart_pct, 2) if ecart_pct is not None else None,
             )
         )
+
+    # ── Articles comptés hors campagne ───────────────────────────────────────
+    article_ids_campagne = {item["article_id"] for item in intermediate}
+    hors_stmt = (
+        select(
+            Comptage.article_id,
+            Article.code_barre,
+            Article.code_article,
+            Article.libelle,
+            func.sum(Comptage.quantite).label("quantite_comptee"),
+        )
+        .join(Article, Article.id == Comptage.article_id)
+        .where(
+            Comptage.campagne_id == campagne.id,
+            Comptage.article_id.not_in(article_ids_campagne) if article_ids_campagne else True,
+        )
+        .group_by(Comptage.article_id, Article.code_barre, Article.code_article, Article.libelle)
+    )
+    hors_rows = (await db.execute(hors_stmt)).all()
+
+    hors_groups: dict[str, list] = defaultdict(list)
+    for r in hors_rows:
+        hors_groups[r.code_article].append(r)
+
+    # ── Fusionner les hors_campagne dont le code_article est déjà dans le rapport
+    # (même produit, barcode différent non enregistré dans la campagne)
+    code_article_idx = {lg.code_article: i for i, lg in enumerate(lignes)}
+    hors_campagne: list[ComptageHorsCampagne] = []
+
+    for code_article, hors_group in hors_groups.items():
+        total_hc = sum(Decimal(str(r.quantite_comptee)) for r in hors_group)
+        idx = code_article_idx.get(code_article)
+        if idx is not None:
+            lg = lignes[idx]
+            new_compte = lg.quantite_comptee + total_hc
+            if lg.quantite_theorique is not None:
+                new_ecart = (new_compte - lg.quantite_theorique).quantize(
+                    Decimal("0.001"), rounding=ROUND_HALF_UP
+                )
+                new_ecart_pct = (
+                    float(new_ecart) / float(lg.quantite_theorique) * 100
+                    if lg.quantite_theorique != 0
+                    else None
+                )
+            else:
+                new_ecart = None
+                new_ecart_pct = None
+            lignes[idx] = lg.model_copy(
+                update={
+                    "quantite_comptee": new_compte,
+                    "ecart": new_ecart,
+                    "ecart_pct": round(new_ecart_pct, 2) if new_ecart_pct is not None else None,
+                }
+            )
+        else:
+            hors_campagne.append(
+                ComptageHorsCampagne(
+                    article_id=hors_group[0].article_id,
+                    code_barres=[r.code_barre for r in hors_group if r.code_barre],
+                    code_article=code_article,
+                    libelle=hors_group[0].libelle,
+                    quantite_comptee=total_hc,
+                )
+            )
 
     # Trier par |écart| décroissant (plus grands écarts en premier)
     lignes.sort(
@@ -172,7 +263,7 @@ def _rapport_to_csv(rapport: CampagneRapport) -> bytes:
     for lg in rapport.lignes:
         writer.writerow(
             [
-                lg.code_barre,
+                ", ".join(lg.code_barres),
                 lg.code_article,
                 lg.libelle,
                 lg.unite or "",
@@ -220,7 +311,7 @@ def _rapport_to_xlsx(rapport: CampagneRapport) -> bytes:
     # ── Données ──────────────────────────────────────────────────────────────
     for lg in rapport.lignes:
         row = [
-            lg.code_barre,
+            ", ".join(lg.code_barres),
             lg.code_article,
             lg.libelle,
             lg.unite or "",

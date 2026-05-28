@@ -8,7 +8,8 @@ from app.models.campagne import StatutCampagne
 
 class RapportLigne(BaseModel):
     article_id: uuid.UUID
-    code_barre: str | None
+    article_ids: list[uuid.UUID]
+    code_barres: list[str]
     code_article: str
     libelle: str
     unite: str | None
@@ -21,7 +22,7 @@ class RapportLigne(BaseModel):
 
 class ComptageHorsCampagne(BaseModel):
     article_id: uuid.UUID
-    code_barre: str | None
+    code_barres: list[str]
     code_article: str
     libelle: str
     quantite_comptee: Decimal

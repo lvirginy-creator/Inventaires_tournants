@@ -127,7 +127,8 @@ export interface ComptagesCampagneResponse {
 
 export interface RapportLigne {
   article_id: string;
-  code_barre: string;
+  article_ids: string[];
+  code_barres: string[];
   code_article: string;
   libelle: string;
   unite: string | null;
@@ -139,7 +140,7 @@ export interface RapportLigne {
 
 export interface ComptageHorsCampagne {
   article_id: string;
-  code_barre: string | null;
+  code_barres: string[];
   code_article: string;
   libelle: string;
   quantite_comptee: number;
