@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_admin, require_admin_role
 from app.core.database import get_db
+from app.models.article import Article
 from app.models.campagne import Campagne, LigneCampagne
 from app.models.comptage import Comptage
 from app.models.magasin import Magasin
@@ -105,6 +106,8 @@ async def delete_societe(
         await db.execute(delete(TokenAppairage).where(TokenAppairage.magasin_id.in_(mag_ids_subq)))
         await db.execute(delete(Tablette).where(Tablette.magasin_id.in_(mag_ids_subq)))
         await db.execute(delete(Magasin).where(Magasin.societe_id == societe_id))
+        # Les articles sont liés directement à la société (articles.societe_id)
+        await db.execute(delete(Article).where(Article.societe_id == societe_id))
         await db.delete(societe)
         await db.commit()
         return
