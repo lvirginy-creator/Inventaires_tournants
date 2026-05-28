@@ -274,20 +274,37 @@ async def valider_campagne(
     arts_result = await db.execute(select(Article).where(Article.id.in_(article_ids)))
     articles_map: dict[uuid.UUID, Article] = {a.id: a for a in arts_result.scalars().all()}
 
-    # ── Construire le tableau d'écarts pour l'e-mail ─────────────────────────────
-    lignes_email: list[dict] = []
+    # ── Construire le tableau d'écarts pour l'e-mail (groupé par code_article) ────
+    groups: dict[str, dict] = {}
     for ligne in lignes:
         art = articles_map.get(ligne.article_id)
         if art is None:
             continue
+        key = art.code_article
         qt_theo = float(ligne.quantite_theorique) if ligne.quantite_theorique is not None else None
         qt_compte = comptages_par_article.get(ligne.article_id, 0.0)
+        if key not in groups:
+            groups[key] = {
+                "code_article": key,
+                "libelle": art.libelle,
+                "qt_theo": qt_theo,
+                "qt_compte": qt_compte,
+            }
+        else:
+            if qt_theo is not None:
+                groups[key]["qt_theo"] = (groups[key]["qt_theo"] or 0.0) + qt_theo
+            groups[key]["qt_compte"] += qt_compte
+
+    lignes_email: list[dict] = []
+    for g in groups.values():
+        qt_theo = g["qt_theo"]
+        qt_compte = g["qt_compte"]
         ecart = (qt_compte - qt_theo) if qt_theo is not None else None
         ecart_pct = (ecart / qt_theo * 100) if (qt_theo and qt_theo != 0) else None
         lignes_email.append(
             {
-                "code_article": art.code_article,
-                "libelle": art.libelle,
+                "code_article": g["code_article"],
+                "libelle": g["libelle"],
                 "qt_theo": qt_theo,
                 "qt_compte": qt_compte,
                 "ecart": ecart,
