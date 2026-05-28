@@ -229,11 +229,14 @@ export default function CampagnesPage() {
       (a) => !selected.lignes.some((l) => l.article_id === a.id)
     );
     const errors: string[] = [];
-    for (const article of toAdd) {
+    for (let i = 0; i < toAdd.length; i++) {
+      const article = toAdd[i];
       try {
         await api.post(`/campagnes/${selected.id}/articles`, {
           article_id: article.id,
-          quantite_theorique: qt,
+          // Quantité théorique uniquement sur le premier code-barre du groupe ;
+          // null sur les suivants pour éviter de multiplier le total.
+          quantite_theorique: i === 0 ? qt : null,
         });
       } catch (err: unknown) {
         const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;

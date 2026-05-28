@@ -98,10 +98,13 @@ async def _build_rapport(campagne: Campagne, db: AsyncSession) -> CampagneRappor
 
     lignes: list[RapportLigne] = []
     for code_article, group in groups.items():
-        total_theo: Decimal | None = None
-        for item in group:
-            if item["quantite_theorique"] is not None:
-                total_theo = (total_theo or Decimal(0)) + item["quantite_theorique"]
+        # La quantité théorique est saisie une seule fois pour tout le groupe
+        # (même valeur sur chaque ligne barcode) → prendre la première valeur,
+        # pas la somme qui multiplierait par le nombre de codes-barres.
+        total_theo = next(
+            (item["quantite_theorique"] for item in group if item["quantite_theorique"] is not None),
+            None,
+        )
         total_compte = sum(item["quantite_comptee"] for item in group)
 
         if total_theo is not None:
