@@ -36,19 +36,22 @@ export async function saveCampagne(campagne: CampagneLocal): Promise<void> {
 export async function getArticleByCodeBarre(
   codeBarre: string
 ): Promise<ArticleLocal | undefined> {
-  return db.articles.where("code_barre").equals(codeBarre).first();
+  const lower = codeBarre.toLowerCase();
+  return db.articles.filter((a) => a.code_barre?.toLowerCase() === lower).first();
 }
 
 export async function getArticleByCodeArticle(
   codeArticle: string
 ): Promise<ArticleLocal | undefined> {
-  return db.articles.where("code_article").equals(codeArticle).first();
+  const lower = codeArticle.toLowerCase();
+  return db.articles.filter((a) => a.code_article.toLowerCase() === lower).first();
 }
 
 export async function getArticlesByCodeArticle(
   codeArticle: string
 ): Promise<ArticleLocal[]> {
-  return db.articles.where("code_article").equals(codeArticle).toArray();
+  const lower = codeArticle.toLowerCase();
+  return db.articles.filter((a) => a.code_article.toLowerCase() === lower).toArray();
 }
 
 export async function getPendingComptages(): Promise<ComptageLocal[]> {
