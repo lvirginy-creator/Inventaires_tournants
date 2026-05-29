@@ -138,9 +138,9 @@ export default function ArticlesPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Articles</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => { setShowImport(true); setImportResult(null); setImportError(""); }}
             className="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700"
@@ -157,7 +157,7 @@ export default function ArticlesPage() {
       </div>
 
       {/* Filtres */}
-      <div className="flex flex-wrap gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-4">
         <select
           value={filterSociete}
           onChange={(e) => setFilterSociete(e.target.value)}
@@ -190,6 +190,7 @@ export default function ArticlesPage() {
 
       {/* Tableau */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
@@ -254,6 +255,7 @@ export default function ArticlesPage() {
             ))}
           </tbody>
         </table>
+        </div>
         {articles.length > 0 && (
           <div className="px-4 py-2 text-xs text-gray-400 border-t">
             {articles.length} article{articles.length > 1 ? "s" : ""}
@@ -263,7 +265,7 @@ export default function ArticlesPage() {
 
       {/* ── Modal création ──────────────────────────────────────────────────── */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
             <h2 className="text-lg font-bold mb-4">Nouvel article</h2>
             <div className="space-y-3">
@@ -323,8 +325,8 @@ export default function ArticlesPage() {
 
       {/* ── Modal import ────────────────────────────────────────────────────── */}
       {showImport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg overflow-y-auto max-h-full">
             <h2 className="text-lg font-bold mb-4">Import CSV / XLSX</h2>
             <p className="text-sm text-gray-500 mb-4">
               Colonnes requises : <code className="bg-gray-100 px-1 rounded">code_barre</code>,{" "}

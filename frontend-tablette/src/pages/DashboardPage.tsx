@@ -399,7 +399,7 @@ export default function DashboardPage() {
           )}
 
           {/* ── Article list ── */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overflow-x-auto">
             {lignesUniques.length === 0 ? (
               <p className="text-center text-gray-400 text-sm py-8">Aucun article dans cette campagne</p>
             ) : (
@@ -506,7 +506,7 @@ export default function DashboardPage() {
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") handleAddComptage(codeArticle);
                                   }}
-                                  className="border rounded px-2 py-1.5 text-sm w-20 text-right font-mono focus:outline-none focus:ring-2 focus:ring-green-400"
+                                  className="border rounded px-2 py-1.5 text-sm w-16 sm:w-20 text-right font-mono focus:outline-none focus:ring-2 focus:ring-green-400"
                                 />
                                 <input
                                   type="text"
@@ -521,7 +521,7 @@ export default function DashboardPage() {
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") handleAddComptage(codeArticle);
                                   }}
-                                  className="border rounded px-2 py-1.5 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-600"
+                                  className="border rounded px-2 py-1.5 text-sm w-24 sm:w-32 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-600 hidden sm:block"
                                   maxLength={500}
                                 />
                                 <button

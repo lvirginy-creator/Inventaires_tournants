@@ -59,7 +59,7 @@ export default function TablettesPage() {
 
       <div className="bg-white rounded-xl shadow p-6 mb-6 max-w-lg space-y-4">
         <h2 className="font-semibold text-gray-800">Générer un token d'appairage</h2>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <select
             value={selectedMagasin}
             onChange={(e) => setSelectedMagasin(e.target.value)}
@@ -97,6 +97,7 @@ export default function TablettesPage() {
       )}
 
       <div className="bg-white rounded-xl shadow overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
             <tr>
@@ -139,6 +140,7 @@ export default function TablettesPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

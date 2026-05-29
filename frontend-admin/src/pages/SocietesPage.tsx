@@ -116,6 +116,7 @@ export default function SocietesPage() {
       )}
 
       <div className="bg-white rounded-xl shadow overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
             <tr>
@@ -168,6 +169,7 @@ export default function SocietesPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -407,9 +407,9 @@ export default function CampagnesPage() {
   // ── Rendu ────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex gap-6 h-full">
+    <div className="flex flex-col lg:flex-row gap-6 h-full">
       {/* ── Liste ──────────────────────────────────────────────────────────── */}
-      <div className="w-96 flex-shrink-0">
+      <div className="w-full lg:w-96 flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-bold text-gray-900">Campagnes</h1>
           <button
@@ -445,7 +445,7 @@ export default function CampagnesPage() {
         </div>
 
         {/* Liste */}
-        <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-240px)]">
+        <div className="space-y-2 overflow-y-auto max-h-60 lg:max-h-[calc(100vh-240px)]">
           {loading && <p className="text-sm text-gray-400 text-center py-4">Chargement…</p>}
           {!loading && campagnes.length === 0 && (
             <p className="text-sm text-gray-400 text-center py-4">Aucune campagne</p>
@@ -480,12 +480,12 @@ export default function CampagnesPage() {
         ) : (
           <div className="bg-white rounded-xl shadow p-6">
             {/* En-tête */}
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">{selected.nom}</h2>
                 <p className="text-sm text-gray-500 mt-0.5">{magasinNom(selected.magasin_id)}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <StatutBadge statut={selected.statut} />
                 {selected.statut === "brouillon" && (
                   <>
@@ -571,7 +571,7 @@ export default function CampagnesPage() {
                 ) : rapport ? (
                   <>
                     {/* Cartes résumé */}
-                    <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                       {[
                         { label: "Articles", value: rapport.nb_articles, color: "text-gray-700" },
                         { label: "Comptés", value: rapport.nb_articles_comptes, color: "text-blue-700" },
@@ -607,7 +607,7 @@ export default function CampagnesPage() {
                     </div>
 
                     {/* Table */}
-                    <div className="overflow-hidden rounded-lg border">
+                    <div className="overflow-x-auto rounded-lg border">
                       <table className="min-w-full divide-y divide-gray-200 text-xs">
                         <thead className="bg-gray-50">
                           <tr>
@@ -831,7 +831,7 @@ export default function CampagnesPage() {
                     <h3 className="text-sm font-semibold text-orange-700 mb-2">
                       ⚠ Articles comptés hors campagne ({rapport.hors_campagne.length})
                     </h3>
-                    <div className="overflow-hidden rounded-lg border border-orange-200">
+                    <div className="overflow-x-auto rounded-lg border border-orange-200">
                       <table className="min-w-full text-xs">
                         <thead className="bg-orange-50">
                           <tr>
@@ -961,7 +961,7 @@ export default function CampagnesPage() {
 
             {/* Table des lignes — groupée par code_article */}
             {detailTab === "articles" && (
-              <div className="overflow-hidden rounded-lg border">
+              <div className="overflow-x-auto rounded-lg border">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">
                     <tr>
@@ -1028,7 +1028,7 @@ export default function CampagnesPage() {
 
       {/* ── Modal création ──────────────────────────────────────────────────── */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
             <h2 className="text-lg font-bold mb-4">Nouvelle campagne</h2>
             <div className="space-y-3">
@@ -1095,7 +1095,7 @@ export default function CampagnesPage() {
 
       {/* ── Modal import ────────────────────────────────────────────────────── */}
       {showImport && selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
             <h2 className="text-lg font-bold mb-2">Importer des articles</h2>
             <p className="text-sm text-gray-500 mb-4">

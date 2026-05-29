@@ -157,7 +157,7 @@ export default function MagasinsPage() {
           className="bg-white rounded-xl shadow p-6 mb-6 space-y-4 max-w-lg"
         >
           <h2 className="font-semibold text-gray-800">Nouveau magasin</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Société</label>
               <select
@@ -206,7 +206,7 @@ export default function MagasinsPage() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Mot de passe opérateur
@@ -252,6 +252,7 @@ export default function MagasinsPage() {
 
       {/* ── Liste des magasins ────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl shadow overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
             <tr>
@@ -314,7 +315,7 @@ export default function MagasinsPage() {
                     <td colSpan={6} className="px-6 py-4 bg-blue-50 border-b border-blue-100">
                       <form onSubmit={handleEdit} className="space-y-3 max-w-xl">
                         <p className="text-sm font-semibold text-blue-800">Modifier {m.nom}</p>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">Société</label>
                             <select
@@ -354,7 +355,7 @@ export default function MagasinsPage() {
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
                           />
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">
                               Nouveau mdp opérateur <span className="text-gray-400">(laisser vide = inchangé)</span>
@@ -404,6 +405,7 @@ export default function MagasinsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
