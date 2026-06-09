@@ -1,4 +1,5 @@
 import secrets
+import string
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -84,7 +85,7 @@ async def create_token_appairage(
 
     token = TokenAppairage(
         magasin_id=payload.magasin_id,
-        token=secrets.token_hex(32),
+        token="".join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(4)),
         expires_at=datetime.now(UTC) + timedelta(hours=settings.TOKEN_APPAIRAGE_HOURS),
     )
     db.add(token)
