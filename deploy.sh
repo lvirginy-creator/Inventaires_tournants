@@ -84,9 +84,20 @@ else
     echo "  AVERTISSEMENT : le backend n'est pas accessible depuis l'hôte sur le port 3004."
 fi
 
-# ── 5. Statut final ────────────────────────────────────────────────────────────
+# ── 5. Rechargement NPM pour re-résoudre les IPs Docker ──────────────────────
+# Les conteneurs recrées ont de nouvelles IPs. Sans reload, nginx (NPM) garde
+# l'ancienne IP en cache et retourne 502 jusqu'au prochain reload automatique.
 echo ""
-echo "[5/5] Statut des conteneurs :"
+echo "[5/6] Rechargement NPM (re-résolution DNS Docker)..."
+if docker exec npm-app nginx -s reload 2>/dev/null; then
+    echo "  NPM rechargé."
+else
+    echo "  (npm-app introuvable ou déjà à jour, ignoré)"
+fi
+
+# ── 6. Statut final ────────────────────────────────────────────────────────────
+echo ""
+echo "[6/6] Statut des conteneurs :"
 $DC -f "$COMPOSE_FILE" ps
 echo ""
 echo "Conteneurs sur le réseau proxy :"
