@@ -53,14 +53,31 @@ async def delete_tablette(
     db: AsyncSession = Depends(get_db),
     _: Utilisateur = Depends(require_admin_role),
 ) -> None:
-    from sqlalchemy import delete as sa_delete
+    from sqlalchemy import delete as sa_delete, update as sa_update
 
+    from app.models.comptage import Comptage
     from app.models.tablette import SessionTablette
 
     result = await db.execute(select(Tablette).where(Tablette.id == tablette_id))
     tablette = result.scalar_one_or_none()
     if not tablette:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tablette introuvable")
+
+    # Récupère les IDs de sessions pour pouvoir les détacher des comptages
+    sessions_result = await db.execute(
+        select(SessionTablette.id).where(SessionTablette.tablette_id == tablette_id)
+    )
+    session_ids = [row[0] for row in sessions_result.all()]
+
+    # Détache les comptages de ces sessions (session_id nullable)
+    if session_ids:
+        await db.execute(
+            sa_update(Comptage)
+            .where(Comptage.session_id.in_(session_ids))
+            .values(session_id=None)
+        )
+
+    # Supprime les sessions puis la tablette
     await db.execute(sa_delete(SessionTablette).where(SessionTablette.tablette_id == tablette_id))
     await db.delete(tablette)
     await db.commit()
