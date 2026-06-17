@@ -469,8 +469,10 @@ export default function DashboardPage() {
                           </td>
 
                           {/* Libellé */}
-                          <td className="px-3 py-2 max-w-[180px] truncate text-gray-800" title={ligne.article.libelle}>
-                            {ligne.article.libelle}
+                          <td className="px-3 py-2 text-gray-800" title={ligne.article.libelle}>
+                            {ligne.article.libelle.length > 40
+                              ? ligne.article.libelle.slice(0, 40) + "…"
+                              : ligne.article.libelle}
                           </td>
 
                           {/* Total compté */}
