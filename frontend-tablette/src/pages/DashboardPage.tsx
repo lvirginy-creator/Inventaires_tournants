@@ -470,8 +470,8 @@ export default function DashboardPage() {
 
                           {/* Libellé */}
                           <td className="px-3 py-2 text-gray-800" title={ligne.article.libelle}>
-                            {ligne.article.libelle.length > 40
-                              ? ligne.article.libelle.slice(0, 40) + "…"
+                            {ligne.article.libelle.length > 50
+                              ? ligne.article.libelle.slice(0, 50) + "…"
                               : ligne.article.libelle}
                           </td>
 
