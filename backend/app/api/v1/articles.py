@@ -102,13 +102,13 @@ async def create_article(
     existing = await db.execute(
         select(Article).where(
             Article.societe_id == payload.societe_id,
-            Article.code_barre == payload.code_barre,
+            Article.code_article == payload.code_article,
         )
     )
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Article avec code barre '{payload.code_barre}' existe déjà pour cette société",
+            detail=f"Article avec code article '{payload.code_article}' existe déjà pour cette société",
         )
     article = Article(**payload.model_dump())
     db.add(article)
@@ -180,10 +180,7 @@ async def import_articles(
         errors: list[str] = []
 
         for i, row in enumerate(rows, start=2):
-            raw_cb = row.get("code_barre", "").strip()
-            code_barre = (raw_cb.split(";")[0].strip() or None) if raw_cb else None
-            if code_barre and len(code_barre) > 50:
-                code_barre = code_barre[:50]
+            code_barre = row.get("code_barre", "").strip() or None
             code_article = row.get("code_article", "").strip()
             libelle = row.get("libelle", "").strip()
             unite = row.get("unite", "").strip() or None
