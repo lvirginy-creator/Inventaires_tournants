@@ -164,59 +164,68 @@ async def import_articles(
             detail=f"Colonnes manquantes : {', '.join(sorted(missing))}",
         )
 
-    # Mode remplacement : désactiver tous les articles existants de la société
-    # code_barre mis à None pour éviter les conflits sur la contrainte unique
-    # (societe_id, code_barre) lors de l'upsert qui suit.
-    if replace:
-        await db.execute(
-            sa_update(Article)
-            .where(Article.societe_id == societe_id)
-            .values(actif=False, code_barre=None, updated_at=now_utc())
-        )
-
-    created = updated = 0
-    errors: list[str] = []
-
-    for i, row in enumerate(rows, start=2):
-        code_barre = row.get("code_barre", "").strip() or None
-        code_article = row.get("code_article", "").strip()
-        libelle = row.get("libelle", "").strip()
-        unite = row.get("unite", "").strip() or None
-
-        if not code_article or not libelle:
-            errors.append(
-                f"Ligne {i} : champs obligatoires manquants (code_article, libelle)"
+    try:
+        # Mode remplacement : désactiver tous les articles existants de la société
+        # code_barre mis à None pour éviter les conflits sur la contrainte unique
+        # (societe_id, code_barre) lors de l'upsert qui suit.
+        if replace:
+            await db.execute(
+                sa_update(Article)
+                .where(Article.societe_id == societe_id)
+                .values(actif=False, code_barre=None, updated_at=now_utc())
+                .execution_options(synchronize_session=False)
             )
-            continue
 
-        result = await db.execute(
-            select(Article).where(
-                Article.societe_id == societe_id,
-                Article.code_article == code_article,
-            )
-        )
-        existing_art = result.scalars().first()
+        created = updated = 0
+        errors: list[str] = []
 
-        if existing_art:
-            existing_art.code_barre = code_barre or existing_art.code_barre
-            existing_art.libelle = libelle
-            existing_art.unite = unite
-            existing_art.actif = True
-            existing_art.updated_at = now_utc()
-            updated += 1
-        else:
-            db.add(
-                Article(
-                    societe_id=societe_id,
-                    code_barre=code_barre or None,
-                    code_article=code_article,
-                    libelle=libelle,
-                    unite=unite,
+        for i, row in enumerate(rows, start=2):
+            code_barre = row.get("code_barre", "").strip() or None
+            code_article = row.get("code_article", "").strip()
+            libelle = row.get("libelle", "").strip()
+            unite = row.get("unite", "").strip() or None
+
+            if not code_article or not libelle:
+                errors.append(
+                    f"Ligne {i} : champs obligatoires manquants (code_article, libelle)"
+                )
+                continue
+
+            result = await db.execute(
+                select(Article).where(
+                    Article.societe_id == societe_id,
+                    Article.code_article == code_article,
                 )
             )
-            created += 1
+            existing_art = result.scalars().first()
 
-    await db.commit()
+            if existing_art:
+                existing_art.code_barre = code_barre or existing_art.code_barre
+                existing_art.libelle = libelle
+                existing_art.unite = unite
+                existing_art.actif = True
+                existing_art.updated_at = now_utc()
+                updated += 1
+            else:
+                db.add(
+                    Article(
+                        societe_id=societe_id,
+                        code_barre=code_barre or None,
+                        code_article=code_article,
+                        libelle=libelle,
+                        unite=unite,
+                    )
+                )
+                created += 1
+
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Erreur import (DB) : {exc}",
+        ) from exc
+
     return ArticleImportResponse(created=created, updated=updated, errors=errors)
 
 
