@@ -3,7 +3,7 @@ import io
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_admin_role
@@ -122,6 +122,7 @@ async def create_article(
 async def import_articles(
     file: UploadFile,
     societe_id: uuid.UUID = Query(..., description="Société cible pour l'import"),
+    replace: bool = Query(False, description="Désactive tous les articles existants avant l'import"),
     _: Utilisateur = Depends(require_admin_role),
     db: AsyncSession = Depends(get_db),
 ) -> ArticleImportResponse:
@@ -131,6 +132,10 @@ async def import_articles(
     Format XLSX : première ligne = en-têtes, première feuille.
     Colonnes requises : code_barre, code_article, libelle.
     Colonne optionnelle : unite.
+
+    Si replace=True : désactive d'abord tous les articles de la société,
+    puis l'upsert réactive ceux présents dans le fichier et en crée de nouveaux.
+    Les articles absents du nouveau fichier restent désactivés.
     """
     content = await file.read()
     filename = file.filename or ""
@@ -159,6 +164,14 @@ async def import_articles(
             detail=f"Colonnes manquantes : {', '.join(sorted(missing))}",
         )
 
+    # Mode remplacement : désactiver tous les articles existants de la société
+    if replace:
+        await db.execute(
+            sa_update(Article)
+            .where(Article.societe_id == societe_id)
+            .values(actif=False, updated_at=now_utc())
+        )
+
     created = updated = 0
     errors: list[str] = []
 
@@ -169,29 +182,21 @@ async def import_articles(
         unite = row.get("unite", "").strip() or None
 
         if not code_article or not libelle:
-            errors.append(f"Ligne {i} : champs obligatoires manquants (code_article, libelle)")
+            errors.append(
+                f"Ligne {i} : champs obligatoires manquants (code_article, libelle)"
+            )
             continue
 
-        # Lookup : par code_barre si présent, sinon par (societe_id, code_article) sans code_barre
-        if code_barre:
-            lookup = await db.execute(
-                select(Article).where(
-                    Article.societe_id == societe_id,
-                    Article.code_barre == code_barre,
-                )
+        result = await db.execute(
+            select(Article).where(
+                Article.societe_id == societe_id,
+                Article.code_article == code_article,
             )
-        else:
-            lookup = await db.execute(
-                select(Article).where(
-                    Article.societe_id == societe_id,
-                    Article.code_article == code_article,
-                    Article.code_barre.is_(None),
-                )
-            )
-        existing_art = lookup.scalar_one_or_none()
+        )
+        existing_art = result.scalars().first()
 
         if existing_art:
-            existing_art.code_article = code_article
+            existing_art.code_barre = code_barre or existing_art.code_barre
             existing_art.libelle = libelle
             existing_art.unite = unite
             existing_art.actif = True
@@ -201,7 +206,7 @@ async def import_articles(
             db.add(
                 Article(
                     societe_id=societe_id,
-                    code_barre=code_barre,
+                    code_barre=code_barre or None,
                     code_article=code_article,
                     libelle=libelle,
                     unite=unite,
