@@ -165,11 +165,13 @@ async def import_articles(
         )
 
     # Mode remplacement : désactiver tous les articles existants de la société
+    # code_barre mis à None pour éviter les conflits sur la contrainte unique
+    # (societe_id, code_barre) lors de l'upsert qui suit.
     if replace:
         await db.execute(
             sa_update(Article)
             .where(Article.societe_id == societe_id)
-            .values(actif=False, updated_at=now_utc())
+            .values(actif=False, code_barre=None, updated_at=now_utc())
         )
 
     created = updated = 0
