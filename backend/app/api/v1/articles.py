@@ -180,7 +180,10 @@ async def import_articles(
         errors: list[str] = []
 
         for i, row in enumerate(rows, start=2):
-            code_barre = row.get("code_barre", "").strip() or None
+            raw_cb = row.get("code_barre", "").strip()
+            code_barre = (raw_cb.split(";")[0].strip() or None) if raw_cb else None
+            if code_barre and len(code_barre) > 50:
+                code_barre = code_barre[:50]
             code_article = row.get("code_article", "").strip()
             libelle = row.get("libelle", "").strip()
             unite = row.get("unite", "").strip() or None
