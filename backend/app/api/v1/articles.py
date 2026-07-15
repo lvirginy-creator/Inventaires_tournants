@@ -172,7 +172,7 @@ async def import_articles(
             await db.execute(
                 sa_update(Article)
                 .where(Article.societe_id == societe_id)
-                .values(actif=False, code_barre=None, updated_at=now_utc())
+                .values(actif=False, updated_at=now_utc())
                 .execution_options(synchronize_session=False)
             )
 
