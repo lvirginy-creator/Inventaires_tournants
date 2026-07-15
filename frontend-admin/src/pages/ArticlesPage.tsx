@@ -41,6 +41,7 @@ export default function ArticlesPage() {
   // Modal import
   const [showImport, setShowImport] = useState(false);
   const [importSociete, setImportSociete] = useState("");
+  const [importReplace, setImportReplace] = useState(false);
   const [importResult, setImportResult] = useState<ArticleImportResponse | null>(null);
   const [importError, setImportError] = useState("");
   const [importLoading, setImportLoading] = useState(false);
@@ -117,8 +118,10 @@ export default function ArticlesPage() {
     const form = new FormData();
     form.append("file", file);
     try {
-      const r = await api.post<ArticleImportResponse>(
-        `/articles/import?societe_id=${importSociete}`,
+      const params = new URLSearchParams({ societe_id: importSociete });
+    if (importReplace) params.set("replace", "true");
+    const r = await api.post<ArticleImportResponse>(
+        `/articles/import?${params}`,
         form,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
@@ -142,7 +145,7 @@ export default function ArticlesPage() {
         <h1 className="text-2xl font-bold text-gray-900">Articles</h1>
         <div className="flex gap-2">
           <button
-            onClick={() => { setShowImport(true); setImportResult(null); setImportError(""); }}
+            onClick={() => { setShowImport(true); setImportResult(null); setImportError(""); setImportReplace(false); }}
             className="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700"
           >
             Importer CSV / XLSX
@@ -327,11 +330,11 @@ export default function ArticlesPage() {
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg">
             <h2 className="text-lg font-bold mb-4">Import CSV / XLSX</h2>
             <p className="text-sm text-gray-500 mb-4">
-              Colonnes requises : <code className="bg-gray-100 px-1 rounded">code_barre</code>,{" "}
-              <code className="bg-gray-100 px-1 rounded">code_article</code>,{" "}
+              Colonnes requises : <code className="bg-gray-100 px-1 rounded">code_article</code>,{" "}
               <code className="bg-gray-100 px-1 rounded">libelle</code>. Optionnel :{" "}
+              <code className="bg-gray-100 px-1 rounded">code_barre</code>,{" "}
               <code className="bg-gray-100 px-1 rounded">unite</code>. Les articles existants
-              (même code barre + société) seront mis à jour.
+              (même code article + société) seront mis à jour.
             </p>
 
             <div className="space-y-3">
@@ -361,6 +364,19 @@ export default function ArticlesPage() {
                   className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />
               </div>
+              <label className="flex items-start gap-2 cursor-pointer mt-1">
+                <input
+                  type="checkbox"
+                  checked={importReplace}
+                  onChange={(e) => setImportReplace(e.target.checked)}
+                  className="mt-0.5 accent-red-600"
+                />
+                <span className="text-sm text-gray-700">
+                  <span className="font-semibold text-red-700">Remplacer la base articles</span>
+                  {" "}— désactive tous les articles existants de la société avant l'import.
+                  Les articles absents du fichier resteront inactifs.
+                </span>
+              </label>
             </div>
 
             {importError && (
