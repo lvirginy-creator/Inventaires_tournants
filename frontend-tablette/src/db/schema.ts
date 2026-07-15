@@ -37,14 +37,7 @@ export async function getArticleByCodeBarre(
   codeBarre: string
 ): Promise<ArticleLocal | undefined> {
   const lower = codeBarre.toLowerCase().trim();
-  return db.articles
-    .filter((a) => {
-      if (!a.code_barre) return false;
-      return a.code_barre
-        .split(";")
-        .some((cb) => cb.trim().toLowerCase() === lower);
-    })
-    .first();
+  return db.articles.filter((a) => a.code_barre?.toLowerCase() === lower).first();
 }
 
 export async function getArticleByCodeArticle(

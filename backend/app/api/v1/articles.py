@@ -102,13 +102,13 @@ async def create_article(
     existing = await db.execute(
         select(Article).where(
             Article.societe_id == payload.societe_id,
-            Article.code_article == payload.code_article,
+            Article.code_barre == payload.code_barre,
         )
     )
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Article avec code article '{payload.code_article}' existe déjà pour cette société",
+            detail=f"Article avec code barre '{payload.code_barre}' existe déjà pour cette société",
         )
     article = Article(**payload.model_dump())
     db.add(article)
@@ -180,10 +180,10 @@ async def import_articles(
         errors: list[str] = []
 
         for i, row in enumerate(rows, start=2):
-            code_barre = row.get("code_barre", "").strip() or None
             code_article = row.get("code_article", "").strip()
             libelle = row.get("libelle", "").strip()
             unite = row.get("unite", "").strip() or None
+            raw_cb = row.get("code_barre", "").strip()
 
             if not code_article or not libelle:
                 errors.append(
@@ -191,32 +191,48 @@ async def import_articles(
                 )
                 continue
 
-            result = await db.execute(
-                select(Article).where(
-                    Article.societe_id == societe_id,
-                    Article.code_article == code_article,
-                )
+            # Explosion multi-codes-barres (séparés par ';' dans certains exports ERP)
+            code_barres: list[str | None] = (
+                [cb.strip() for cb in raw_cb.split(";") if cb.strip()]
+                if raw_cb else [None]
             )
-            existing_art = result.scalars().first()
 
-            if existing_art:
-                existing_art.code_barre = code_barre or existing_art.code_barre
-                existing_art.libelle = libelle
-                existing_art.unite = unite
-                existing_art.actif = True
-                existing_art.updated_at = now_utc()
-                updated += 1
-            else:
-                db.add(
-                    Article(
-                        societe_id=societe_id,
-                        code_barre=code_barre or None,
-                        code_article=code_article,
-                        libelle=libelle,
-                        unite=unite,
+            for code_barre in code_barres:
+                if code_barre:
+                    lookup = await db.execute(
+                        select(Article).where(
+                            Article.societe_id == societe_id,
+                            Article.code_barre == code_barre,
+                        )
                     )
-                )
-                created += 1
+                else:
+                    lookup = await db.execute(
+                        select(Article).where(
+                            Article.societe_id == societe_id,
+                            Article.code_article == code_article,
+                            Article.code_barre.is_(None),
+                        )
+                    )
+                existing_art = lookup.scalars().first()
+
+                if existing_art:
+                    existing_art.code_article = code_article
+                    existing_art.libelle = libelle
+                    existing_art.unite = unite
+                    existing_art.actif = True
+                    existing_art.updated_at = now_utc()
+                    updated += 1
+                else:
+                    db.add(
+                        Article(
+                            societe_id=societe_id,
+                            code_barre=code_barre,
+                            code_article=code_article,
+                            libelle=libelle,
+                            unite=unite,
+                        )
+                    )
+                    created += 1
 
         await db.commit()
     except Exception as exc:

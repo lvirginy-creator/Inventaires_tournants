@@ -1,13 +1,12 @@
-"""articles: code_barre VARCHAR(50) -> TEXT, suppression contrainte unique
+"""articles: code_barre VARCHAR(50) -> TEXT
 
 Revision ID: 0010
 Revises: 0009
 Create Date: 2026-07-15
 
-Un article peut avoir plusieurs codes-barres séparés par des ';' (export ERP).
-- code_barre passe de VARCHAR(50) à TEXT (pas de limite de longueur)
-- Suppression de l'index unique partiel ix_articles_societe_code_barre
-  (la valeur entière "CB1;CB2;CB3" n'est pas comparable à un EAN individuel)
+Les exports ERP peuvent contenir des codes-barres longs (GTIN-128, etc.).
+- code_barre passe de VARCHAR(50) à TEXT
+- L'index unique partiel est recréé sur le type TEXT
 """
 
 from collections.abc import Sequence
@@ -30,9 +29,15 @@ def upgrade() -> None:
         existing_type=sa.String(50),
         existing_nullable=True,
     )
+    op.execute(sa.text(
+        "CREATE UNIQUE INDEX ix_articles_societe_code_barre "
+        "ON articles (societe_id, code_barre) "
+        "WHERE code_barre IS NOT NULL"
+    ))
 
 
 def downgrade() -> None:
+    op.execute(sa.text("DROP INDEX IF EXISTS ix_articles_societe_code_barre"))
     op.execute(sa.text("UPDATE articles SET code_barre = LEFT(code_barre, 50)"))
     op.alter_column(
         "articles",
