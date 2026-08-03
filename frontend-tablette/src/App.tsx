@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { useTokenRenewal } from "@/hooks/useTokenRenewal";
+import SyncManager from "@/sync/SyncManager";
 import LoginPage from "@/pages/LoginPage";
 import PairingPage from "@/pages/PairingPage";
 import DashboardPage from "@/pages/DashboardPage";
@@ -20,6 +22,13 @@ function RequirePaired({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   useTokenRenewal();
+
+  useEffect(() => {
+    SyncManager.getInstance().init();
+    if ("storage" in navigator && navigator.storage.persist) {
+      navigator.storage.persist();
+    }
+  }, []);
 
   return (
     <>

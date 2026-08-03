@@ -1,12 +1,28 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { useSyncStore } from "@/store/sync";
 import api from "@/api/client";
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
+
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { magasin_nom, role, tablette_id, logout } = useAuthStore();
-  const { lastSyncAt, pendingCount } = useSyncStore();
+  const { lastSyncAt, pendingCount, consecutiveFailures, nextRetryAt } = useSyncStore();
+  const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null);
+
+  useEffect(() => {
+    if ("storage" in navigator && navigator.storage.estimate) {
+      navigator.storage.estimate().then((est) => {
+        setStorage({ usage: est.usage ?? 0, quota: est.quota ?? 0 });
+      });
+    }
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -16,6 +32,10 @@ export default function SettingsPage() {
       navigate("/login", { replace: true });
     }
   };
+
+  const retryLabel = nextRetryAt
+    ? `dans ${Math.max(0, Math.round((nextRetryAt - Date.now()) / 1000))} s`
+    : null;
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -42,11 +62,7 @@ export default function SettingsPage() {
             label="Rôle"
             value={role === "responsable_depot" ? "Responsable dépôt" : "Opérateur"}
           />
-          <InfoRow
-            label="ID tablette"
-            value={tablette_id || "—"}
-            mono
-          />
+          <InfoRow label="ID tablette" value={tablette_id || "—"} mono />
           <InfoRow
             label="Dernière sync"
             value={lastSyncAt ? new Date(lastSyncAt).toLocaleString("fr-FR") : "Jamais"}
@@ -58,14 +74,32 @@ export default function SettingsPage() {
               warn
             />
           )}
+          {consecutiveFailures > 0 && (
+            <InfoRow
+              label="Échecs de sync"
+              value={`${consecutiveFailures}${retryLabel ? ` — réessai ${retryLabel}` : ""}`}
+              warn
+            />
+          )}
         </div>
+
+        {/* Stockage local */}
+        {storage && (
+          <div className="bg-white rounded-2xl shadow p-5 space-y-3">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+              Stockage local
+            </h2>
+            <InfoRow label="Utilisé" value={formatBytes(storage.usage)} />
+            <InfoRow label="Quota" value={formatBytes(storage.quota)} />
+          </div>
+        )}
 
         {/* Version */}
         <div className="bg-white rounded-2xl shadow p-5">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
             Application
           </h2>
-          <InfoRow label="Version" value="0.1.0" />
+          <InfoRow label="Version" value="0.2.0" />
         </div>
       </main>
 

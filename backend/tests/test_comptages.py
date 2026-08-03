@@ -112,6 +112,9 @@ async def test_submit_batch(
     data = resp.json()
     assert data["created"] == 3
     assert data["duplicates"] == 0
+    assert data["rejected"] == 0
+    assert len(data["results"]) == 3
+    assert all(r["status"] == "created" for r in data["results"])
 
 
 @pytest.mark.asyncio
@@ -122,7 +125,7 @@ async def test_submit_batch_with_duplicates(
     campagne: Campagne,
     article: Article,
 ):
-    """3 entrées dont 1 doublon → created=2, duplicates=1."""
+    """3 entrées dont 1 doublon → created=2, duplicates=1, résultats par ligne."""
     await client.post(f"/api/v1/campagnes/{campagne.id}/demarrer", headers=auth_headers)
 
     entries = [_payload(campagne, article) for _ in range(3)]
@@ -142,6 +145,71 @@ async def test_submit_batch_with_duplicates(
     data = resp.json()
     assert data["created"] == 2
     assert data["duplicates"] == 1
+    assert data["rejected"] == 0
+    results_by_uuid = {r["client_uuid"]: r for r in data["results"]}
+    assert results_by_uuid[entries[0]["client_uuid"]]["status"] == "duplicate"
+    assert results_by_uuid[entries[1]["client_uuid"]]["status"] == "created"
+    assert results_by_uuid[entries[2]["client_uuid"]]["status"] == "created"
+
+
+@pytest.mark.asyncio
+async def test_submit_batch_campagne_invalide(
+    client: AsyncClient,
+    tablette_headers: dict,
+    campagne: Campagne,
+    article: Article,
+):
+    """Campagne non active → status rejected avec motif campagne_invalide."""
+    entry = _payload(campagne, article)
+    resp = await client.post(
+        "/api/v1/comptages/batch",
+        json={"comptages": [entry]},
+        headers=tablette_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["created"] == 0
+    assert data["rejected"] == 1
+    assert data["results"][0]["status"] == "rejected"
+    assert data["results"][0]["motif"] == "campagne_invalide"
+
+
+@pytest.mark.asyncio
+async def test_submit_batch_mixte(
+    client: AsyncClient,
+    auth_headers: dict,
+    tablette_headers: dict,
+    campagne: Campagne,
+    article: Article,
+):
+    """Batch mixte : 1 créé, 1 doublon, 1 campagne invalide."""
+    await client.post(f"/api/v1/campagnes/{campagne.id}/demarrer", headers=auth_headers)
+
+    entry_new = _payload(campagne, article)
+    entry_dup = _payload(campagne, article)
+    # Pré-insérer le doublon
+    await client.post(
+        "/api/v1/comptages/batch",
+        json={"comptages": [entry_dup]},
+        headers=tablette_headers,
+    )
+    # Campagne fictive (inexistante) → rejected
+    entry_invalid = {
+        **entry_new,
+        "campagne_id": str(uuid.uuid4()),
+        "client_uuid": str(uuid.uuid4()),
+    }
+
+    resp = await client.post(
+        "/api/v1/comptages/batch",
+        json={"comptages": [entry_new, entry_dup, entry_invalid]},
+        headers=tablette_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["created"] == 1
+    assert data["duplicates"] == 1
+    assert data["rejected"] == 1
 
 
 @pytest.mark.asyncio
