@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { useSyncStore } from "@/store/sync";
 import api from "@/api/client";
+import { clearAuthLocal } from "@/db/authLocal";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export default function SettingsPage() {
     try {
       await api.post("/auth/tablette/logout");
     } finally {
+      await clearAuthLocal();
       logout();
       navigate("/login", { replace: true });
     }
@@ -65,7 +67,7 @@ export default function SettingsPage() {
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
             Application
           </h2>
-          <InfoRow label="Version" value="0.1.0" />
+          <InfoRow label="Version" value="0.2.0" />
         </div>
       </main>
 

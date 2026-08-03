@@ -17,7 +17,7 @@ import type { CampagneLocal, ComptageLocal } from "@/types";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { magasin_nom, role } = useAuthStore();
+  const { magasin_nom, role, offlineSession } = useAuthStore();
   const { status, pendingCount, lastSyncAt, lastError, setStatus, setPendingCount, setLastSyncAt } =
     useSyncStore();
 
@@ -79,8 +79,8 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    // Load local DB first for instant display, then sync in background
-    refreshState().then(() => handleSync());
+    // Load local DB first; skip auto-sync in offline session (no valid token)
+    refreshState().then(() => { if (!offlineSession) handleSync(); });
     barcodeRef.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
