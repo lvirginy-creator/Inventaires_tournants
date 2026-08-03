@@ -379,7 +379,7 @@ async def add_comptage_admin(
         magasin_id=campagne.magasin_id,
         session_id=None,  # pas de session tablette pour les saisies admin
         quantite=payload.quantite,
-        client_uuid=f"admin-{uuid.uuid4()}",
+        client_uuid=str(uuid.uuid4()),
         counted_at=now_utc(),
         saisie_admin=True,
     )
