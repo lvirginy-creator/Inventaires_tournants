@@ -115,6 +115,7 @@ async def test_submit_batch(
     assert data["rejected"] == 0
     assert len(data["results"]) == 3
     assert all(r["status"] == "created" for r in data["results"])
+    assert all(not r["hors_delai"] for r in data["results"])
 
 
 @pytest.mark.asyncio
@@ -159,7 +160,7 @@ async def test_submit_batch_campagne_invalide(
     campagne: Campagne,
     article: Article,
 ):
-    """Campagne non active → status rejected avec motif campagne_invalide."""
+    """Campagne en brouillon → status rejected avec motif campagne_invalide."""
     entry = _payload(campagne, article)
     resp = await client.post(
         "/api/v1/comptages/batch",
@@ -172,6 +173,58 @@ async def test_submit_batch_campagne_invalide(
     assert data["rejected"] == 1
     assert data["results"][0]["status"] == "rejected"
     assert data["results"][0]["motif"] == "campagne_invalide"
+
+
+@pytest.mark.asyncio
+async def test_submit_batch_hors_delai_terminee(
+    client: AsyncClient,
+    auth_headers: dict,
+    tablette_headers: dict,
+    campagne: Campagne,
+    article: Article,
+):
+    """Campagne terminée → comptage accepté avec hors_delai=True."""
+    # Démarrer puis clôturer la campagne
+    await client.post(f"/api/v1/campagnes/{campagne.id}/demarrer", headers=auth_headers)
+    await client.post("/api/v1/campagne-active/cloturer", headers=tablette_headers)
+
+    entry = _payload(campagne, article)
+    resp = await client.post(
+        "/api/v1/comptages/batch",
+        json={"comptages": [entry]},
+        headers=tablette_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["created"] == 1
+    assert data["rejected"] == 0
+    assert data["results"][0]["status"] == "created"
+    assert data["results"][0]["hors_delai"] is True
+
+
+@pytest.mark.asyncio
+async def test_submit_batch_hors_delai_validee(
+    client: AsyncClient,
+    auth_headers: dict,
+    tablette_headers: dict,
+    campagne: Campagne,
+    article: Article,
+):
+    """Campagne validée → comptage accepté avec hors_delai=True."""
+    await client.post(f"/api/v1/campagnes/{campagne.id}/demarrer", headers=auth_headers)
+    await client.post("/api/v1/campagne-active/cloturer", headers=tablette_headers)
+    await client.post(f"/api/v1/campagnes/{campagne.id}/valider", headers=auth_headers)
+
+    entry = _payload(campagne, article)
+    resp = await client.post(
+        "/api/v1/comptages/batch",
+        json={"comptages": [entry]},
+        headers=tablette_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["created"] == 1
+    assert data["results"][0]["hors_delai"] is True
 
 
 @pytest.mark.asyncio

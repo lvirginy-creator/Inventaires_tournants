@@ -5,6 +5,7 @@ import {
   getPendingComptages,
   getPendingDeletions,
   markComptagesSynced,
+  markComptagesHorsDelai,
   saveCampagne,
 } from "@/db/schema";
 import type { CampagneLocal } from "@/types";
@@ -13,6 +14,7 @@ interface BatchItemResult {
   client_uuid: string;
   status: "created" | "duplicate" | "rejected";
   motif?: string | null;
+  hors_delai?: boolean;
 }
 
 interface BatchResponse {
@@ -87,9 +89,11 @@ export async function runSync(lastSyncAt: string | null): Promise<SyncResult> {
       });
 
       const syncedUuids: string[] = [];
+      const horsDelaiUuids: string[] = [];
       for (const r of resp.data.results) {
         if (r.status === "created" || r.status === "duplicate") {
           syncedUuids.push(r.client_uuid);
+          if (r.hors_delai) horsDelaiUuids.push(r.client_uuid);
         } else if (r.status === "rejected") {
           await db.comptages
             .where("client_uuid")
@@ -99,6 +103,7 @@ export async function runSync(lastSyncAt: string | null): Promise<SyncResult> {
       }
       if (syncedUuids.length > 0) {
         await markComptagesSynced(syncedUuids);
+        await markComptagesHorsDelai(horsDelaiUuids);
       }
       result.uploaded = resp.data.created;
       result.rejected = resp.data.rejected;

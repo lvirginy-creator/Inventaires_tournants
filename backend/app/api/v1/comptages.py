@@ -49,18 +49,17 @@ async def _check_campagne_active(
         )
 
 
-async def _is_campagne_active(
+async def _get_campagne(
     campagne_id: uuid.UUID, magasin_id: uuid.UUID, db: AsyncSession
-) -> bool:
-    """Retourne True si la campagne est en cours pour ce magasin (sans lever d'exception)."""
+) -> Campagne | None:
+    """Retourne la campagne si elle appartient au magasin, None sinon."""
     result = await db.execute(
         select(Campagne).where(
             Campagne.id == campagne_id,
             Campagne.magasin_id == magasin_id,
-            Campagne.statut == StatutCampagne.en_cours,
         )
     )
-    return result.scalar_one_or_none() is not None
+    return result.scalar_one_or_none()
 
 
 @router.post("", response_model=ComptageRead, status_code=status.HTTP_201_CREATED)
@@ -131,8 +130,8 @@ async def submit_batch(
     duplicates = 0
     rejected = 0
 
-    # Cache des campagnes vérifiées pour éviter une requête par comptage
-    campagne_cache: dict[uuid.UUID, bool] = {}
+    # Cache des campagnes pour éviter une requête par comptage
+    campagne_cache: dict[uuid.UUID, Campagne | None] = {}
 
     for item in payload.comptages:
         if item.client_uuid in existing_uuids:
@@ -143,10 +142,13 @@ async def submit_batch(
             continue
 
         if item.campagne_id not in campagne_cache:
-            campagne_cache[item.campagne_id] = await _is_campagne_active(
+            campagne_cache[item.campagne_id] = await _get_campagne(
                 item.campagne_id, session.magasin_id, db
             )
-        if not campagne_cache[item.campagne_id]:
+        campagne = campagne_cache[item.campagne_id]
+
+        # Brouillon ou inexistante → rejeté
+        if campagne is None or campagne.statut == StatutCampagne.brouillon:
             results.append(
                 BatchComptageItemResult(
                     client_uuid=item.client_uuid,
@@ -156,6 +158,9 @@ async def submit_batch(
             )
             rejected += 1
             continue
+
+        # Terminée ou validée → accepté mais marqué hors délai
+        hors_delai = campagne.statut != StatutCampagne.en_cours
 
         counted_at = item.counted_at
         if counted_at.tzinfo is None:
@@ -171,9 +176,16 @@ async def submit_batch(
                 client_uuid=item.client_uuid,
                 counted_at=counted_at,
                 commentaire=item.commentaire,
+                hors_delai=hors_delai,
             )
         )
-        results.append(BatchComptageItemResult(client_uuid=item.client_uuid, status="created"))
+        results.append(
+            BatchComptageItemResult(
+                client_uuid=item.client_uuid,
+                status="created",
+                hors_delai=hors_delai,
+            )
+        )
         created += 1
 
     if created:
@@ -263,6 +275,7 @@ async def list_comptages_campagne(
             Comptage.counted_at,
             Comptage.created_at,
             Comptage.saisie_admin,
+            Comptage.hors_delai,
             Comptage.commentaire,
             Article.code_barre,
             Article.code_article,
@@ -301,6 +314,7 @@ async def list_comptages_campagne(
             created_at=row.created_at,
             tablette_nom=row.tablette_nom,
             saisie_admin=row.saisie_admin,
+            hors_delai=row.hors_delai,
             commentaire=row.commentaire,
         )
         articles_map[key].comptages.append(detail)

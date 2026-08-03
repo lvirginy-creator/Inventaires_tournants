@@ -98,6 +98,11 @@ export async function markComptagesSynced(clientUuids: string[]): Promise<void> 
   await db.comptages.where("client_uuid").anyOf(clientUuids).modify({ synced: true, syncError: null });
 }
 
+export async function markComptagesHorsDelai(clientUuids: string[]): Promise<void> {
+  if (clientUuids.length === 0) return;
+  await db.comptages.where("client_uuid").anyOf(clientUuids).modify({ hors_delai: true });
+}
+
 export async function saveComptage(comptage: ComptageLocal): Promise<void> {
   await db.comptages.put(comptage);
 }

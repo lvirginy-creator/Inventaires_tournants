@@ -28,6 +28,7 @@ class ComptageRead(BaseModel):
     counted_at: datetime
     created_at: datetime
     saisie_admin: bool = False
+    hors_delai: bool = False
     commentaire: str | None = None
 
 
@@ -39,6 +40,7 @@ class BatchComptageItemResult(BaseModel):
     client_uuid: str
     status: Literal["created", "duplicate", "rejected"]
     motif: str | None = None
+    hors_delai: bool = False
 
 
 class BatchComptageResponse(BaseModel):
@@ -70,6 +72,7 @@ class ComptageDetail(BaseModel):
     created_at: datetime
     tablette_nom: str | None  # None pour les saisies admin
     saisie_admin: bool
+    hors_delai: bool = False
     commentaire: str | None = None
 
 

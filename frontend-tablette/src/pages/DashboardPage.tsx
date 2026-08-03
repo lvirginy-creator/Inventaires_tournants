@@ -581,6 +581,9 @@ export default function DashboardPage() {
                                           {!c.synced && (
                                             <span className="ml-1 text-orange-500 text-xs" title="Non synchronisé">●</span>
                                           )}
+                                          {c.hors_delai && (
+                                            <span className="ml-1 text-xs font-medium text-orange-600 bg-orange-50 rounded px-1" title="Soumis après clôture de campagne">HD</span>
+                                          )}
                                         </td>
                                         <td className="pr-4 py-1 text-gray-500 text-xs italic max-w-[160px] truncate">
                                           {c.commentaire || ""}

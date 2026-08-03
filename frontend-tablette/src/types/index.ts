@@ -33,6 +33,7 @@ export interface ComptageLocal {
   synced: boolean;
   commentaire?: string;
   syncError?: string | null;
+  hors_delai?: boolean;
 }
 
 export interface TabletteAuth {

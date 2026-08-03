@@ -34,6 +34,8 @@ class Comptage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     # Ajout manuel depuis l'interface admin (session_id peut être NULL dans ce cas)
     saisie_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Vrai si soumis après la clôture de la campagne (sync différée hors ligne)
+    hors_delai: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # Commentaire optionnel saisi lors du comptage
     commentaire: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
