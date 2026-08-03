@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "@/api/client";
 import { useAuthStore } from "@/store/auth";
+import { storeAuthLocal } from "@/db/authLocal";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -38,6 +39,10 @@ export default function LoginPage() {
         session_id: resp.data.session_id,
         role: resp.data.role,
       });
+
+      // Store PBKDF2 verifier for future offline unlock (non-fatal if fails)
+      storeAuthLocal(password).catch(() => undefined);
+
       navigate("/", { replace: true });
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data

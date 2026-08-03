@@ -11,12 +11,19 @@ interface DeletionQueueRow {
   queued_at: string;
 }
 
+interface AuthLocalRecord {
+  id: "main";
+  salt: string;
+  hash: string;
+}
+
 export class InventaireDB extends Dexie {
   articles!: Table<ArticleLocal, string>;
   campagne!: Table<CampagneLocal & { _key: number }, number>;
   comptages!: Table<ComptageLocal, string>;
   meta!: Table<MetaRow, string>;
   deletionsQueue!: Table<DeletionQueueRow, string>;
+  authLocal!: Table<AuthLocalRecord, string>;
 
   constructor() {
     super("inventaire-g2c");
@@ -31,6 +38,14 @@ export class InventaireDB extends Dexie {
       comptages: "client_uuid, campagne_id, article_id, synced",
       meta: "key",
       deletionsQueue: "client_uuid",
+    });
+    this.version(3).stores({
+      articles: "id, code_barre, code_article",
+      campagne: "++_key",
+      comptages: "client_uuid, campagne_id, article_id, synced",
+      meta: "key",
+      deletionsQueue: "client_uuid",
+      authLocal: "id",
     });
   }
 }

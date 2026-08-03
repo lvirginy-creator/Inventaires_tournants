@@ -21,7 +21,7 @@ import type { CampagneLocal, ComptageLocal } from "@/types";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { magasin_nom, role } = useAuthStore();
+  const { magasin_nom, role, offlineSession } = useAuthStore();
   const { status, pendingCount, lastSyncAt, lastError, setStatus, setPendingCount, setLastSyncAt } =
     useSyncStore();
 

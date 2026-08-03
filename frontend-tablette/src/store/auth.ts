@@ -4,10 +4,13 @@ import type { TabletteAuth } from "@/types";
 
 interface AuthState extends TabletteAuth {
   accessToken: string;
+  offlineSession: boolean;
   setAuth: (auth: TabletteAuth & { access_token: string }) => void;
   setTabletteId: (tablette_id: string) => void;
   logout: () => void;
   isAuthenticated: () => boolean;
+  enterOfflineSession: () => void;
+  exitOfflineSession: () => void;
 }
 
 const EMPTY: TabletteAuth & { accessToken: string } = {
@@ -34,6 +37,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       ...EMPTY,
+      offlineSession: false,
       setAuth: (auth) =>
         set({
           tablette_id: auth.tablette_id,
@@ -43,15 +47,18 @@ export const useAuthStore = create<AuthState>()(
           magasin_nom: auth.magasin_nom,
           session_id: auth.session_id,
           role: auth.role,
+          offlineSession: false,
         }),
       setTabletteId: (tablette_id) => set({ tablette_id }),
       logout: () =>
-        set((state) => ({ ...EMPTY, tablette_id: state.tablette_id })),
+        set((state) => ({ ...EMPTY, tablette_id: state.tablette_id, offlineSession: false })),
       isAuthenticated: () => {
         const token = get().accessToken;
         if (!token) return false;
         return !isTokenExpired(token);
       },
+      enterOfflineSession: () => set({ offlineSession: true }),
+      exitOfflineSession: () => set({ offlineSession: false }),
     }),
     {
       name: "tablette-auth",
@@ -71,6 +78,7 @@ export const useAuthStore = create<AuthState>()(
         magasin_nom: state.magasin_nom,
         session_id: state.session_id,
         role: state.role,
+        // offlineSession intentionally excluded — resets on each page load
       }),
     }
   )

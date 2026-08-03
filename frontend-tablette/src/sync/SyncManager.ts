@@ -1,6 +1,7 @@
 import { getMetaValue, setMetaValue } from "@/db/schema";
 import { runSync } from "@/db/sync";
 import { useSyncStore } from "@/store/sync";
+import { useAuthStore } from "@/store/auth";
 
 const BACKOFF_DELAYS = [5_000, 15_000, 45_000, 120_000, 300_000];
 const SYNC_INTERVAL_MS = 3 * 60 * 1000;
@@ -45,6 +46,7 @@ class SyncManager {
 
   trigger(): void {
     if (!navigator.onLine) return;
+    if (useAuthStore.getState().offlineSession) return;
     if (this.running) {
       this.pendingTrigger = true;
       return;

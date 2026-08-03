@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { useSyncStore } from "@/store/sync";
 import api from "@/api/client";
+import { clearAuthLocal } from "@/db/authLocal";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} o`;
@@ -28,6 +29,7 @@ export default function SettingsPage() {
     try {
       await api.post("/auth/tablette/logout");
     } finally {
+      await clearAuthLocal();
       logout();
       navigate("/login", { replace: true });
     }
