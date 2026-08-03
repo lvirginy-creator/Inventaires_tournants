@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -34,9 +35,17 @@ class BatchComptageRequest(BaseModel):
     comptages: list[ComptageCreate] = Field(..., min_length=1, max_length=500)
 
 
+class BatchComptageItemResult(BaseModel):
+    client_uuid: str
+    status: Literal["created", "duplicate", "rejected"]
+    motif: str | None = None
+
+
 class BatchComptageResponse(BaseModel):
+    results: list[BatchComptageItemResult]
     created: int
     duplicates: int
+    rejected: int
 
 
 # ── Schémas admin — réconciliation multi-comptages ─────────────────────────────

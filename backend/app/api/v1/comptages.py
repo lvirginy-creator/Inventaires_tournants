@@ -15,6 +15,7 @@ from app.models.comptage import Comptage
 from app.models.tablette import SessionTablette, Tablette
 from app.models.utilisateur import Utilisateur
 from app.schemas.comptage import (
+    BatchComptageItemResult,
     BatchComptageRequest,
     BatchComptageResponse,
     ComptageAdminCreate,
@@ -125,15 +126,20 @@ async def submit_batch(
     )
     existing_uuids = {row[0] for row in existing_res.all()}
 
+    results: list[BatchComptageItemResult] = []
     created = 0
-    duplicates = len(existing_uuids)
-    skipped = 0
+    duplicates = 0
+    rejected = 0
 
     # Cache des campagnes vérifiées pour éviter une requête par comptage
     campagne_cache: dict[uuid.UUID, bool] = {}
 
     for item in payload.comptages:
         if item.client_uuid in existing_uuids:
+            results.append(
+                BatchComptageItemResult(client_uuid=item.client_uuid, status="duplicate")
+            )
+            duplicates += 1
             continue
 
         if item.campagne_id not in campagne_cache:
@@ -141,7 +147,14 @@ async def submit_batch(
                 item.campagne_id, session.magasin_id, db
             )
         if not campagne_cache[item.campagne_id]:
-            skipped += 1
+            results.append(
+                BatchComptageItemResult(
+                    client_uuid=item.client_uuid,
+                    status="rejected",
+                    motif="campagne_invalide",
+                )
+            )
+            rejected += 1
             continue
 
         counted_at = item.counted_at
@@ -160,12 +173,15 @@ async def submit_batch(
                 commentaire=item.commentaire,
             )
         )
+        results.append(BatchComptageItemResult(client_uuid=item.client_uuid, status="created"))
         created += 1
 
     if created:
         await db.commit()
 
-    return BatchComptageResponse(created=created, duplicates=duplicates)
+    return BatchComptageResponse(
+        results=results, created=created, duplicates=duplicates, rejected=rejected
+    )
 
 
 @router.get("", response_model=list[ComptageRead])

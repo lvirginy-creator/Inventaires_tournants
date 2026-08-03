@@ -7,11 +7,15 @@ import {
   getCampagneActive,
   getArticleByCodeBarre,
   getArticlesByCodeArticle,
+  getMetaValue,
   saveComptage,
+  setMetaValue,
   getPendingComptages,
+  queueDeletion,
   db,
 } from "@/db/schema";
 import { runSync } from "@/db/sync";
+import SyncManager from "@/sync/SyncManager";
 import api from "@/api/client";
 import type { CampagneLocal, ComptageLocal } from "@/types";
 
@@ -79,11 +83,18 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    // Load local DB first for instant display, then sync in background
-    refreshState().then(() => handleSync());
+    refreshState();
     barcodeRef.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Rafraîchir l'affichage après chaque sync réussie
+  useEffect(() => {
+    if (status === "success") {
+      refreshState();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   // ── Derived state ────────────────────────────────────────────────────────────
 
@@ -195,6 +206,11 @@ export default function DashboardPage() {
     setTimeout(() => setAddedArticle(null), 1000);
     setTimeout(() => qtyInputRefs.current[codeArticle]?.focus(), 50);
 
+    // Déclencher sync automatique si en ligne
+    if (navigator.onLine) {
+      SyncManager.getInstance().trigger();
+    }
+
     // Background reload to reconcile DB state (synced flags, etc.)
     loadComptages(campagne);
   };
@@ -203,13 +219,18 @@ export default function DashboardPage() {
     if (!campagne) return;
     if (!confirm("Supprimer ce comptage ?")) return;
     if (cpt.synced) {
-      try {
-        await api.delete(`/campagne-active/comptages/${cpt.client_uuid}`);
-      } catch (err) {
-        const detail =
-          (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-        alert(detail ?? "Erreur lors de la suppression — vérifiez votre connexion.");
-        return;
+      if (navigator.onLine) {
+        try {
+          await api.delete(`/campagne-active/comptages/${cpt.client_uuid}`);
+        } catch (err) {
+          const detail =
+            (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+          alert(detail ?? "Erreur lors de la suppression — vérifiez votre connexion.");
+          return;
+        }
+      } else {
+        // Hors ligne : mise en file pour suppression différée
+        await queueDeletion(cpt.client_uuid);
       }
     }
     await db.comptages.delete(cpt.client_uuid);
@@ -218,21 +239,8 @@ export default function DashboardPage() {
 
   // ── Sync ────────────────────────────────────────────────────────────────────
 
-  const handleSync = async () => {
-    setStatus("syncing");
-    try {
-      const result = await runSync(lastSyncAt);
-      if (result.errors.length > 0) {
-        setStatus("error", result.errors.join(" | "));
-      } else {
-        setStatus("success");
-        const synced = localStorage.getItem("lastSyncAt");
-        if (synced) setLastSyncAt(synced);
-      }
-      await refreshState();
-    } catch {
-      setStatus("error", "Erreur inattendue");
-    }
+  const handleSync = () => {
+    SyncManager.getInstance().trigger();
   };
 
   // ── Clôturer ────────────────────────────────────────────────────────────────
@@ -243,7 +251,13 @@ export default function DashboardPage() {
     if (!confirm(`Clôturer la campagne « ${campagne.nom} » ?\nLes tablettes ne pourront plus saisir de comptages.`)) return;
     try {
       setCloturerLoading(true);
-      await handleSync(); // upload pending counts first
+      // Sync directe (pas via SyncManager) pour garantir la complétion avant la clôture
+      const lastSyncAt = (await getMetaValue("lastSyncAt")) ?? null;
+      const result = await runSync(lastSyncAt);
+      if (result.newLastSyncAt) {
+        await setMetaValue("lastSyncAt", result.newLastSyncAt);
+        setLastSyncAt(result.newLastSyncAt);
+      }
       await api.post("/campagne-active/cloturer");
       await refreshState();
     } catch {
