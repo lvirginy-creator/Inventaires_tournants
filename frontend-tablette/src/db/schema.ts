@@ -1,6 +1,16 @@
 import Dexie, { type Table } from "dexie";
 import type { ArticleLocal, CampagneLocal, ComptageLocal } from "@/types";
 
+interface MetaRow {
+  key: string;
+  value: string;
+}
+
+interface DeletionQueueRow {
+  client_uuid: string;
+  queued_at: string;
+}
+
 interface AuthLocalRecord {
   id: "main";
   salt: string;
@@ -11,6 +21,8 @@ export class InventaireDB extends Dexie {
   articles!: Table<ArticleLocal, string>;
   campagne!: Table<CampagneLocal & { _key: number }, number>;
   comptages!: Table<ComptageLocal, string>;
+  meta!: Table<MetaRow, string>;
+  deletionsQueue!: Table<DeletionQueueRow, string>;
   authLocal!: Table<AuthLocalRecord, string>;
 
   constructor() {
@@ -24,6 +36,15 @@ export class InventaireDB extends Dexie {
       articles: "id, code_barre, code_article",
       campagne: "++_key",
       comptages: "client_uuid, campagne_id, article_id, synced",
+      meta: "key",
+      deletionsQueue: "client_uuid",
+    });
+    this.version(3).stores({
+      articles: "id, code_barre, code_article",
+      campagne: "++_key",
+      comptages: "client_uuid, campagne_id, article_id, synced",
+      meta: "key",
+      deletionsQueue: "client_uuid",
       authLocal: "id",
     });
   }
@@ -72,9 +93,35 @@ export async function getPendingComptages(): Promise<ComptageLocal[]> {
 }
 
 export async function markComptagesSynced(clientUuids: string[]): Promise<void> {
-  await db.comptages.where("client_uuid").anyOf(clientUuids).modify({ synced: true });
+  await db.comptages.where("client_uuid").anyOf(clientUuids).modify({ synced: true, syncError: null });
 }
 
 export async function saveComptage(comptage: ComptageLocal): Promise<void> {
   await db.comptages.put(comptage);
+}
+
+// ── Helpers meta (clé/valeur) ──────────────────────────────────────────────────
+
+export async function getMetaValue(key: string): Promise<string | undefined> {
+  const row = await db.meta.get(key);
+  return row?.value;
+}
+
+export async function setMetaValue(key: string, value: string): Promise<void> {
+  await db.meta.put({ key, value });
+}
+
+// ── Helpers deletionsQueue ─────────────────────────────────────────────────────
+
+export async function getPendingDeletions(): Promise<string[]> {
+  const rows = await db.deletionsQueue.toArray();
+  return rows.map((r) => r.client_uuid);
+}
+
+export async function queueDeletion(clientUuid: string): Promise<void> {
+  await db.deletionsQueue.put({ client_uuid: clientUuid, queued_at: new Date().toISOString() });
+}
+
+export async function clearDeletion(clientUuid: string): Promise<void> {
+  await db.deletionsQueue.delete(clientUuid);
 }
