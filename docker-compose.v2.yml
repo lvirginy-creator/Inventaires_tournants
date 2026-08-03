@@ -1,0 +1,85 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: inventaire_v2
+    volumes:
+      - pgdata_v2:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/inventaire_v2
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: HS256
+      JWT_ADMIN_ACCESS_MINUTES: 60
+      JWT_ADMIN_REFRESH_HOURS: 8
+      TOKEN_APPAIRAGE_HOURS: 24
+      CORS_ORIGINS: ${CORS_ORIGINS_V2:-${CORS_ORIGINS}}
+      LOG_LEVEL: INFO
+      ENVIRONMENT: production
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Inventaire G2C}
+      MAIL_REPLY_TO: ${MAIL_REPLY_TO}
+    ports:
+      - "127.0.0.1:3014:3004"
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - default
+      - proxy
+
+  frontend-admin:
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "127.0.0.1:3013:80"
+    depends_on:
+      - backend
+    networks:
+      - default
+      - proxy
+
+  frontend-tablette:
+    build:
+      context: ./frontend-tablette
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "127.0.0.1:3012:80"
+    depends_on:
+      - backend
+    networks:
+      - default
+      - proxy
+
+volumes:
+  pgdata_v2:
+
+networks:
+  default:
+  proxy:
+    external: true
