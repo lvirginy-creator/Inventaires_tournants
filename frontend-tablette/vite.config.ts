@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
@@ -46,5 +47,9 @@ export default defineConfig({
     proxy: {
       "/api": { target: "http://localhost:8000", changeOrigin: true },
     },
+  },
+  test: {
+    environment: "node",
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
 });
