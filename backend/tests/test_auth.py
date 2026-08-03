@@ -5,8 +5,10 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
+from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models import Magasin, Utilisateur
 from app.models.tablette import SessionTablette, Tablette, TokenAppairage
 
@@ -217,6 +219,83 @@ async def test_tablette_session_creee_en_db(
     assert session is not None
     assert session.actif is True
     assert session.role.value == "responsable_depot"
+
+
+# ── Renouvellement token tablette ─────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_tablette_renouveler_ok(
+    client: AsyncClient, session_tablette: SessionTablette, db: AsyncSession
+) -> None:
+    token = session_tablette._token  # type: ignore[attr-defined]
+    resp = await client.post(
+        "/api/v1/auth/tablette/renouveler",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "access_token" in data
+    assert data["access_token"] != token  # nouveau token émis
+    assert data["session_id"] == str(session_tablette.id)
+
+    await db.refresh(session_tablette)
+    assert session_tablette.last_seen_at is not None
+
+
+@pytest.mark.asyncio
+async def test_tablette_renouveler_session_inactive(
+    client: AsyncClient, session_tablette: SessionTablette, db: AsyncSession
+) -> None:
+    session_tablette.actif = False
+    await db.flush()
+
+    token = session_tablette._token  # type: ignore[attr-defined]
+    resp = await client.post(
+        "/api/v1/auth/tablette/renouveler",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_tablette_renouveler_token_expire(
+    client: AsyncClient, session_tablette: SessionTablette, db: AsyncSession
+) -> None:
+    settings = get_settings()
+    payload = {
+        "sub": str(session_tablette.id),
+        "type": "access_tablette",
+        "tablette_id": str(session_tablette.tablette_id),
+        "magasin_id": str(session_tablette.magasin_id),
+        "session_id": str(session_tablette.id),
+        "role": session_tablette.role.value,
+        "exp": datetime.now(UTC) - timedelta(seconds=1),
+    }
+    expired_token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+    resp = await client.post(
+        "/api/v1/auth/tablette/renouveler",
+        headers={"Authorization": f"Bearer {expired_token}"},
+    )
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_tablette_renouveler_mauvais_type_token(
+    client: AsyncClient, admin_user: Utilisateur
+) -> None:
+    from app.core.security import create_admin_access_token
+
+    admin_token = create_admin_access_token(admin_user.id, admin_user.role.value)
+    resp = await client.post(
+        "/api/v1/auth/tablette/renouveler",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 401
+
+
+# ── Logout tablette ────────────────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio

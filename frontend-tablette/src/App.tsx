@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
+import { useTokenRenewal } from "@/hooks/useTokenRenewal";
 import LoginPage from "@/pages/LoginPage";
 import PairingPage from "@/pages/PairingPage";
 import DashboardPage from "@/pages/DashboardPage";
@@ -18,6 +19,8 @@ function RequirePaired({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useTokenRenewal();
+
   return (
     <>
       <OfflineBanner />
