@@ -19,11 +19,30 @@ import SyncManager from "@/sync/SyncManager";
 import api from "@/api/client";
 import type { CampagneLocal, ComptageLocal } from "@/types";
 
+function useRetryCountdown(nextRetryAt: number | null): string | null {
+  const [label, setLabel] = useState<string | null>(null);
+  useEffect(() => {
+    if (!nextRetryAt) { setLabel(null); return; }
+    const tick = () => {
+      const diff = Math.max(0, Math.round((nextRetryAt - Date.now()) / 1000));
+      if (diff === 0) { setLabel(null); return; }
+      const m = Math.floor(diff / 60);
+      const s = diff % 60;
+      setLabel(m > 0 ? `${m}m ${s}s` : `${s}s`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [nextRetryAt]);
+  return label;
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { magasin_nom, role } = useAuthStore();
-  const { status, pendingCount, lastSyncAt, lastError, setPendingCount, setLastSyncAt } =
+  const { status, pendingCount, lastSyncAt, lastError, nextRetryAt, setPendingCount, setLastSyncAt } =
     useSyncStore();
+  const retryCountdown = useRetryCountdown(nextRetryAt);
 
   const [campagne, setCampagne] = useState<CampagneLocal | null>(null);
   const [comptagesMap, setComptagesMap] = useState<Map<string, ComptageLocal[]>>(new Map());
@@ -407,8 +426,13 @@ export default function DashboardPage() {
 
           {/* ── Sync error ── */}
           {status === "error" && lastError && (
-            <div className="mx-3 mt-2 flex-shrink-0 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-xs text-orange-700">
-              {lastError}
+            <div className="mx-3 mt-2 flex-shrink-0 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-xs text-orange-700 flex items-center justify-between">
+              <span>{lastError}</span>
+              {retryCountdown && (
+                <span className="ml-2 whitespace-nowrap font-medium">
+                  Retry {retryCountdown}
+                </span>
+              )}
             </div>
           )}
 
@@ -651,11 +675,30 @@ export default function DashboardPage() {
                 >
                   {cloturerLoading ? "Clôture…" : "Clôturer"}
                 </button>
-                {!allArticlesCounted && (
-                  <p className="text-center text-xs text-yellow-700">
-                    {lignesUniques.length - countedCount} article(s) sans comptage
-                  </p>
-                )}
+                {!allArticlesCounted && (() => {
+                  const missing = lignesUniques.filter(
+                    (l) => (comptagesMap.get(l.article.code_article)?.length ?? 0) === 0
+                  );
+                  return (
+                    <div className="text-xs text-yellow-800">
+                      <p className="text-center font-medium">
+                        {missing.length} article{missing.length > 1 ? "s" : ""} sans comptage
+                      </p>
+                      <ul className="mt-0.5 space-y-0.5 max-h-14 overflow-y-auto">
+                        {missing.slice(0, 3).map((l) => (
+                          <li key={l.article_id} className="text-center truncate text-yellow-700">
+                            {l.article.code_article} — {l.article.libelle}
+                          </li>
+                        ))}
+                        {missing.length > 3 && (
+                          <li className="text-center text-yellow-600 italic">
+                            + {missing.length - 3} autre{missing.length - 3 > 1 ? "s" : ""}
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

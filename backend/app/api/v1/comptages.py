@@ -2,13 +2,14 @@ import uuid
 from datetime import UTC
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_admin, get_current_session, require_admin_role
 from app.core.database import get_db, now_utc
+from app.core.limiter import _get_tablette_id, limiter
 from app.models.article import Article
 from app.models.campagne import Campagne, LigneCampagne, StatutCampagne
 from app.models.comptage import Comptage
@@ -108,7 +109,9 @@ async def submit_comptage(
 
 
 @router.post("/batch", response_model=BatchComptageResponse)
+@limiter.limit("200/hour", key_func=_get_tablette_id)
 async def submit_batch(
+    request: Request,
     payload: BatchComptageRequest,
     session: SessionTablette = Depends(get_current_session),
     db: AsyncSession = Depends(get_db),
