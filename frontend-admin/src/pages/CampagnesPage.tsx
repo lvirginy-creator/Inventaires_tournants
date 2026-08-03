@@ -614,18 +614,18 @@ export default function CampagnesPage() {
                             <th className="px-3 py-2 w-10"></th>
                             {(
                               [
-                                ["code_article", "Code article"],
-                                ["libelle", "Libellé"],
-                                ["quantite_theorique", "Théorique"],
-                                ["quantite_comptee", "Compté"],
-                                ["ecart", "Écart"],
-                                ["ecart_pct", "Écart %"],
-                              ] as [keyof CampagneRapport["lignes"][0], string][]
-                            ).map(([col, label]) => (
+                                ["code_article", "Code article", "left"],
+                                ["libelle", "Libellé", "left"],
+                                ["quantite_theorique", "Théorique", "right"],
+                                ["quantite_comptee", "Compté", "right"],
+                                ["ecart", "Écart", "right"],
+                                ["ecart_pct", "Écart %", "right"],
+                              ] as [keyof CampagneRapport["lignes"][0], string, "left" | "right"][]
+                            ).map(([col, label, align]) => (
                               <th
                                 key={col}
                                 onClick={() => toggleSort(col)}
-                                className="px-3 py-2 text-left font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                                className={`px-3 py-2 text-${align} font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none`}
                               >
                                 {label}
                                 {rapportSort.col === col && (
