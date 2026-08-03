@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ADMIN_ACCESS_MINUTES: int = 60
     JWT_ADMIN_REFRESH_HOURS: int = 8
+    JWT_TABLETTE_DAYS: int = 7
     TOKEN_APPAIRAGE_HOURS: int = 24
 
     # CORS — reçu soit en JSON, soit en liste Python

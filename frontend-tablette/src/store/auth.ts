@@ -20,6 +20,16 @@ const EMPTY: TabletteAuth & { accessToken: string } = {
   role: "operateur",
 };
 
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (payload.exp && Date.now() / 1000 > payload.exp) return true;
+  } catch {
+    // token mal formé
+  }
+  return false;
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -37,13 +47,31 @@ export const useAuthStore = create<AuthState>()(
       setTabletteId: (tablette_id) => set({ tablette_id }),
       logout: () =>
         set((state) => ({ ...EMPTY, tablette_id: state.tablette_id })),
-      isAuthenticated: () => Boolean(get().accessToken),
+      isAuthenticated: () => {
+        const token = get().accessToken;
+        if (!token) return false;
+        return !isTokenExpired(token);
+      },
     }),
     {
       name: "tablette-auth",
-      // Ne pas persister le token — relogin requis après fermeture
-      // Pour simplifier en V1, on persiste pour garder tablette_id
-      partialize: (state) => ({ tablette_id: state.tablette_id }),
+      version: 1,
+      migrate: (persistedState: unknown, version: number) => {
+        if (version === 0) {
+          const old = persistedState as { tablette_id?: string };
+          return { ...EMPTY, tablette_id: old.tablette_id ?? "" };
+        }
+        return persistedState as Partial<AuthState>;
+      },
+      partialize: (state) => ({
+        tablette_id: state.tablette_id,
+        accessToken: state.accessToken,
+        access_token: state.access_token,
+        magasin_id: state.magasin_id,
+        magasin_nom: state.magasin_nom,
+        session_id: state.session_id,
+        role: state.role,
+      }),
     }
   )
 );

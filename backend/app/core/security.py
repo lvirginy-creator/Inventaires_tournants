@@ -52,12 +52,13 @@ def create_tablette_token(
     magasin_id: uuid.UUID,
     role: str,
 ) -> str:
-    """JWT de session tablette sans expiration.
+    """JWT de session tablette avec expiration glissante (JWT_TABLETTE_DAYS).
 
     Contient tablette_id, magasin_id, session_id, role pour que chaque
     endpoint tablette puisse vérifier les accès sans aller en DB.
     La session reste révocable via le logout (actif=False en base).
     """
+    expire = datetime.now(UTC) + timedelta(days=settings.JWT_TABLETTE_DAYS)
     payload = {
         "sub": str(session_id),
         "type": "access_tablette",
@@ -65,6 +66,7 @@ def create_tablette_token(
         "magasin_id": str(magasin_id),
         "session_id": str(session_id),
         "role": role,
+        "exp": expire,
     }
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 

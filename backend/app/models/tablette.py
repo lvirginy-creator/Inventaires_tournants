@@ -61,6 +61,7 @@ class SessionTablette(Base):
     date_debut: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     date_fin: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     actif: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     tablette: Mapped["Tablette"] = relationship(back_populates="sessions")
     magasin: Mapped["Magasin"] = relationship(back_populates="sessions")

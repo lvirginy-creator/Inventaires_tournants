@@ -7,6 +7,7 @@ from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_session
 from app.core.database import get_db, now_utc
 from app.core.limiter import limiter
 from app.core.security import (
@@ -231,6 +232,41 @@ async def login_tablette(
         magasin_nom=magasin.nom,
         session_id=session_id,
         role=role.value,
+    )
+
+
+@router.post("/tablette/renouveler", response_model=TabletteTokenResponse)
+async def renouveler_tablette(
+    session: SessionTablette = Depends(get_current_session),
+    db: AsyncSession = Depends(get_db),
+) -> TabletteTokenResponse:
+    """Renouvelle le token JWT tablette (même session_id, nouvelle exp).
+
+    Appelé par la tablette quand le token a plus de 24 h.
+    Rejette les sessions révoquées (actif=False) via get_current_session.
+    """
+    result = await db.execute(select(Magasin).where(Magasin.id == session.magasin_id))
+    magasin = result.scalar_one_or_none()
+    if not magasin or not magasin.actif:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Magasin introuvable ou désactivé"
+        )
+
+    new_token = create_tablette_token(
+        session.id, session.tablette_id, session.magasin_id, session.role.value
+    )
+    session.jwt_token_hash = hash_jwt(new_token)
+    session.last_seen_at = now_utc()
+    await db.commit()
+
+    logger.info(f"Token tablette renouvelé: session {session.id}")
+    return TabletteTokenResponse(
+        access_token=new_token,
+        tablette_id=session.tablette_id,
+        magasin_id=session.magasin_id,
+        magasin_nom=magasin.nom,
+        session_id=session.id,
+        role=session.role.value,
     )
 
 
